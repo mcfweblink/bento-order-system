@@ -1,32 +1,67 @@
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+const db = admin.firestore();
+
+// ★変更点: 日本のリージョン(asia-northeast1)で動作する関数を、より確実な方法で定義します。
+const regionalFunctions = functions.region("asia-northeast1");
+
 /**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * お客様向けの公開情報を取得するためのHTTP関数
  */
+exports.getPublicData = regionalFunctions.https.onCall(async (data, context) => {
+  // App Checkの検証
+  if (context.app == undefined) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "The function must be called from an App Check verified app.",
+    );
+  }
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
+  try {
+    // 各コレクションからデータを並行して取得
+    const productsPromise = db.collection("products")
+        .where("isVisible", "==", true).get();
+    const servingStylesPromise = db.collection("servingStyles").get();
+    const paymentMethodsPromise = db.collection("paymentMethods").get();
+    const storeInfoPromise = db.collection("settings").doc("storeInfo").get();
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+    const [
+      productsSnapshot,
+      servingStylesSnapshot,
+      paymentMethodsSnapshot,
+      storeInfoDoc,
+    ] = await Promise.all([
+      productsPromise,
+      servingStylesPromise,
+      paymentMethodsPromise,
+      storeInfoPromise,
+    ]);
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+    // 取得したデータを整形
+    const products = productsSnapshot.docs.map((doc) => ({
+      id: doc.id, ...doc.data(),
+    }));
+    const servingStyles = servingStylesSnapshot.docs.map((doc) => ({
+      id: doc.id, ...doc.data(),
+    }));
+    const paymentMethods = paymentMethodsSnapshot.docs.map((doc) => ({
+      id: doc.id, ...doc.data(),
+    }));
+    const storeInfo = storeInfoDoc.exists ? storeInfoDoc.data() : {};
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+    // 全てのデータをまとめてクライアントに返す
+    return {
+      products,
+      servingStyles,
+      paymentMethods,
+      storeInfo,
+    };
+  } catch (error) {
+    console.error("Error fetching public data:", error);
+    throw new functions.https.HttpsError(
+        "internal", "Unable to fetch public data.",
+    );
+  }
+});

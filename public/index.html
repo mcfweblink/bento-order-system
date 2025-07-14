@@ -1,89 +1,119 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お弁当注文フォーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-4">
+            <h1 class="text-3xl font-bold text-gray-800">特製お弁当のご注文</h1>
+        </div>
+    </header>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/11.10.0/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/11.10.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/11.10.0/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+    <main class="container mx-auto p-6">
+        <!-- メインビジュアルやコンセプト -->
+        <section class="mb-12">
+            <img src="https://placehold.co/1200x400/34D399/FFFFFF?text=お店のこだわりお弁当" alt="お弁当のイメージ" class="w-full h-auto rounded-lg shadow-lg mb-6">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-2">お店のこだわり</h2>
+            <p id="delivery-area-text" class="text-gray-600 mb-4">（ここに配達エリアの案内が表示されます）</p>
+            <p class="text-gray-600">ここに、お店のこだわりやコンセプトを記述します。新鮮な食材と手作りにこだわった、心温まるお弁当をお届けします。</p>
+        </section>
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+        <!-- メニュー一覧 -->
+        <section id="menu-section" class="mb-12">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">メニュー</h2>
+            <div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- 商品情報はJavaScriptでここに動的に生成されます -->
+                <p>商品を読み込んでいます...</p>
+            </div>
+        </section>
+
+        <!-- 注文フォーム -->
+        <section id="order-form-section" class="bg-white p-8 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-6">ご注文フォーム</h2>
+            <div class="space-y-6">
+                <!-- お客様情報 -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">お客様情報</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="customer-name" placeholder="お名前 (必須)" class="w-full p-2 border rounded">
+                        <input type="text" id="customer-address" placeholder="ご住所 (必須)" class="w-full p-2 border rounded">
+                        <input type="tel" id="customer-phone" placeholder="電話番号 (必須)" class="w-full p-2 border rounded">
+                        <input type="email" id="customer-email" placeholder="メールアドレス (必須)" class="w-full p-2 border rounded">
+                    </div>
+                </div>
+
+                <!-- 注文内容 -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">ご注文内容</h3>
+                    <div id="order-items" class="space-y-2 mb-4">
+                        <p class="text-gray-500">メニューから商品を選択してください。</p>
+                    </div>
+                    <div class="text-right font-bold text-xl">
+                        合計: <span id="total-price">0</span>円
+                    </div>
+                </div>
+
+                <!-- オプション -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 mb-2">提供スタイル (複数選択可)</h3>
+                        <div id="serving-style-options" class="space-y-1">
+                            <!-- 提供スタイルはJSで生成 -->
+                            <p class="text-sm text-gray-500">読み込み中...</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 mb-2">食事タイミング</h3>
+                        <select id="meal-type" class="w-full p-2 border rounded">
+                            <option value="昼食のみ">昼食のみ</option>
+                            <option value="夕食のみ">夕食のみ</option>
+                            <option value="昼と夕両方">昼と夕両方</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 配送日・支払い方法 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 mb-2">配送希望日</h3>
+                        <input type="date" id="delivery-date" class="w-full p-2 border rounded">
+                        <p id="delivery-date-rule" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 mb-2">お支払い方法</h3>
+                        <select id="payment-method" class="w-full p-2 border rounded">
+                            <!-- 支払い方法はJSで生成 -->
+                            <option>読み込み中...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 備考欄 -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">備考欄</h3>
+                    <textarea id="remarks" rows="3" class="w-full p-2 border rounded" placeholder="アレルギーやその他ご要望があればご記入ください。"></textarea>
+                </div>
+
+                <!-- 注文ボタン -->
+                <button id="submit-order-button" class="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400">この内容で注文する</button>
+                <p id="form-error-message" class="text-red-500 mt-4 text-center"></p>
+            </div>
+        </section>
+    </main>
+
+    <!-- 注文完了モーダル -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-sm mx-auto">
+            <h2 class="text-2xl font-bold mb-4">ご注文ありがとうございます！</h2>
+            <p class="mb-6">ご注文を受け付けました。詳細は確認メールをご確認ください。</p>
+            <button onclick="location.reload()" class="bg-blue-500 text-white px-6 py-2 rounded-lg">ページを更新する</button>
+        </div>
     </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-  </body>
+    <script type="module" src="./js/order.js"></script>
+</body>
 </html>
