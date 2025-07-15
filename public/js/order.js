@@ -9,14 +9,17 @@ import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
 // Firebaseの初期化
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const functions = getFunctions(app, 'asia-northeast1'); // Functionsのリージョンを指定
 
+// ★変更点: App Checkの初期化を、他のサービスより先に行う
 // --- App Checkの初期化 ---
 const appCheck = initializeAppCheck(app, {
   provider: new ReCaptchaV3Provider(recaptchaSiteKey),
   isTokenAutoRefreshEnabled: true
 });
+
+// App Checkの準備ができてから、他のサービスを準備する
+const db = getFirestore(app);
+const functions = getFunctions(app, 'asia-northeast1'); // Functionsのリージョンを指定
 
 // --- DOM要素の取得 ---
 const productList = document.getElementById('product-list');
@@ -90,7 +93,7 @@ async function loadPublicData() {
     }
 }
 
-// --- (注文概要の更新、配送日ルール、注文保存のロジックは変更なし) ---
+// --- 注文概要の更新、配送日ルール、注文保存のロジック ---
 function updateOrderSummary() {
     let total = 0;
     orderItemsDiv.innerHTML = '';

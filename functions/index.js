@@ -1,24 +1,19 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore} = require("firebase-admin/firestore");
+const {setGlobalOptions} = require("firebase-functions/v2");
 
-admin.initializeApp();
-const db = admin.firestore();
+// 関数のデフォルトリージョンを東京に設定
+setGlobalOptions({region: "asia-northeast1"});
 
-// ★変更点: 日本のリージョン(asia-northeast1)で動作する関数を、より確実な方法で定義します。
-const regionalFunctions = functions.region("asia-northeast1");
+initializeApp();
+const db = getFirestore();
 
 /**
- * お客様向けの公開情報を取得するためのHTTP関数
+ * お客様向けの公開情報を取得するための呼び出し可能な関数
  */
-exports.getPublicData = regionalFunctions.https.onCall(async (data, context) => {
-  // App Checkの検証
-  if (context.app == undefined) {
-    throw new functions.https.HttpsError(
-        "failed-precondition",
-        "The function must be called from an App Check verified app.",
-    );
-  }
-
+exports.getPublicData = onCall({enforceAppCheck: true}, async (request) => {
+  // enforceAppCheck: true により、App Checkの検証が自動的に行われます。
   try {
     // 各コレクションからデータを並行して取得
     const productsPromise = db.collection("products")
@@ -60,8 +55,7 @@ exports.getPublicData = regionalFunctions.https.onCall(async (data, context) => 
     };
   } catch (error) {
     console.error("Error fetching public data:", error);
-    throw new functions.https.HttpsError(
-        "internal", "Unable to fetch public data.",
-    );
+    // エラーが発生した場合は、クライアントにエラーを通知
+    throw new HttpsError("internal", "Unable to fetch public data.");
   }
 });

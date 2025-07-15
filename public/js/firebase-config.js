@@ -12,4 +12,4 @@ export const firebaseConfig = {
   };
 
 
-export const recaptchaSiteKey = "6Lfu14gpAAAAADfJIMSzEr9DY6IEv39nlx4mEyre"; // ここにコピーしたサイトキーを貼り付ける
+export const recaptchaSiteKey = "6LfAHH8rAAAAAJwB4UWV09Dnnsm1PpTfokBZKIKg"; // ここにコピーしたサイトキーを貼り付ける

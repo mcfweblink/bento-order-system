@@ -19,6 +19,7 @@
     }
   ],
   "hosting": {
+    "site": "bento-order-system-prod",
     "public": "public",
     "ignore": [
       "firebase.json",
