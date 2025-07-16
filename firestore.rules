@@ -3,33 +3,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 注文(orders)コレクション: App Checkで検証されたアプリからのみ作成(注文)できる
+    // 注文(orders)コレクション
     match /orders/{orderId} {
+      // App Checkで検証されたアプリからのみ作成できる
       allow create: if request.app != null;
+      // ログインしている管理者のみが読み取り、更新、削除できる
       allow read, update, delete: if request.auth != null;
     }
 
-    // ★変更点: 全ての公開情報への直接の読み取りを禁止
-    // データはCloud Function経由でのみ取得されるため、より安全になります。
-    match /products/{doc=**} {
-      allow read, write: if request.auth != null;
-    }
-    match /servingStyles/{doc=**} {
-      allow read, write: if request.auth != null;
-    }
-    match /paymentMethods/{doc=**} {
-      allow read, write: if request.auth != null;
-    }
-    match /settings/{doc=**} {
-      allow read, write: if request.auth != null;
-    }
-    match /holidays/{doc=**} {
+    // 商品(products)コレクション
+    match /products/{productId} {
       allow read, write: if request.auth != null;
     }
 
-    // カウンターはバックエンド(Cloud Functions)からのみ書き込み可
+    // 提供スタイル(servingStyles)コレクション
+    match /servingStyles/{styleId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // 支払い方法(paymentMethods)コレクション
+    match /paymentMethods/{methodId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // 各種設定(settings)コレクション
+    match /settings/{settingId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // 休業日(holidays)コレクション
+    match /holidays/{holidayId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // カウンター(counters)コレクション
     match /counters/{counterId} {
-        allow read, write: if false; // クライアントからは操作不可
+        // バックエンド(Cloud Functions)からのみ操作するため、クライアントからは操作不可
+        allow read, write: if false;
     }
   }
 }

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理ダッシュボード</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Shift_JIS変換ライブラリ -->
+    <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
 </head>
 <body class="bg-gray-100">
     <div id="app-container" class="hidden">
@@ -14,15 +16,156 @@
                 <button id="logout-button" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">ログアウト</button>
             </div>
         </header>
+
         <main class="container mx-auto p-4">
-            <!-- ここに商品管理、オプション管理などのコンテンツが入ります -->
-            <h2 class="text-2xl font-bold mb-4">商品管理</h2>
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <!-- 商品追加フォームや商品一覧がここに入る -->
-                <p>ここに商品管理機能が実装されます。</p>
+            <!-- タブ切り替えメニュー -->
+            <div class="mb-4 border-b border-gray-200">
+                <ul class="flex flex-wrap -mb-px font-medium text-center" id="tabs-container">
+                    <li class="mr-2"><a href="#orders" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">受注管理</a></li>
+                    <li class="mr-2"><a href="#products" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">商品管理</a></li>
+                    <li class="mr-2"><a href="#settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">各種設定</a></li>
+                </ul>
+            </div>
+
+            <!-- タブコンテンツ -->
+            <div id="tab-contents">
+                <!-- 受注管理タブ -->
+                <div id="orders" class="tab-content">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">受注一覧</h2>
+                        <div class="flex items-center gap-4">
+                            <select id="csv-encoding-select" class="border rounded p-2 bg-white">
+                                <option value="utf8-bom">UTF-8 (BOM付き)</option>
+                                <option value="sjis">Shift_JIS (Excel用)</option>
+                            </select>
+                            <button id="csv-export-button" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">CSVエクスポート</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-500">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3">注文番号</th>
+                                        <th scope="col" class="px-6 py-3">注文日時</th>
+                                        <th scope="col" class="px-6 py-3">お客様名</th>
+                                        <th scope="col" class="px-6 py-3">合計金額</th>
+                                        <th scope="col" class="px-6 py-3">ステータス</th>
+                                        <th scope="col" class="px-6 py-3">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table-body">
+                                    <!-- 注文データがここに表示されます -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 商品管理タブ -->
+                <div id="products" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">商品管理</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4">新規商品追加・編集</h3>
+                        <form id="product-form" class="space-y-4">
+                            <input type="hidden" id="product-id">
+                            <input type="hidden" id="product-image-url-hidden">
+                            <div>
+                                <label for="product-name" class="block mb-1">商品名</label>
+                                <input type="text" id="product-name" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div>
+                                <label for="product-description" class="block mb-1">商品説明</label>
+                                <textarea id="product-description" rows="3" class="w-full p-2 border rounded"></textarea>
+                            </div>
+                            <div>
+                                <label for="product-price" class="block mb-1">価格（円）</label>
+                                <input type="number" id="product-price" class="w-full p-2 border rounded" required>
+                            </div>
+                            <div>
+                                <label for="product-image" class="block mb-1">商品画像（変更する場合のみ選択）</label>
+                                <input type="file" id="product-image" class="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <img id="image-preview" class="mt-2 h-32 hidden rounded-md object-cover">
+                            </div>
+                            <div>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="product-is-visible" class="form-checkbox" checked>
+                                    <span class="ml-2">注文ページに表示する</span>
+                                </label>
+                            </div>
+                            <div class="flex gap-4">
+                                <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">保存</button>
+                                <button type="button" id="cancel-edit-button" class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500 hidden">キャンセル</button>
+                            </div>
+                        </form>
+                        <hr class="my-6">
+                        <h3 class="text-lg font-semibold mb-4">登録済み商品一覧</h3>
+                        <div id="products-list-admin" class="space-y-4">
+                            <!-- 登録済み商品がここに表示されます -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 各種設定タブ -->
+                <div id="settings" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">各種設定</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
+                        <!-- オプション管理 -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">オプション管理</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-medium mb-2">提供スタイル</h4>
+                                    <div id="serving-styles-list" class="space-y-2"></div>
+                                    <div class="flex gap-2 mt-2">
+                                        <input type="text" id="new-serving-style" placeholder="新しいスタイル名" class="flex-grow p-2 border rounded">
+                                        <button id="add-serving-style-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium mb-2">支払い方法</h4>
+                                    <div id="payment-methods-list" class="space-y-2"></div>
+                                    <div class="flex gap-2 mt-2">
+                                        <input type="text" id="new-payment-method" placeholder="新しい支払い方法" class="flex-grow p-2 border rounded">
+                                        <button id="add-payment-method-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- メール設定 -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">メール設定</h3>
+                            <div id="email-settings-form" class="space-y-4">
+                                <div>
+                                    <label for="from-email" class="block mb-1">送信元メールアドレス (SendGridで認証済みのもの)</label>
+                                    <input type="email" id="from-email" class="w-full p-2 border rounded">
+                                </div>
+                                <div>
+                                    <label for="admin-email" class="block mb-1">管理者通知先メールアドレス</label>
+                                    <input type="email" id="admin-email" class="w-full p-2 border rounded">
+                                </div>
+                                <button id="save-email-settings-button" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">メール設定を保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
+
+    <!-- 注文詳細モーダル -->
+    <div id="order-details-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">注文詳細</h2>
+                <button id="close-modal-button" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div id="modal-content" class="text-left">
+                <!-- 注文詳細がここに表示されます -->
+            </div>
+        </div>
+    </div>
+
     <div id="loading" class="min-h-screen flex items-center justify-center">
         <p>読み込み中...</p>
     </div>
