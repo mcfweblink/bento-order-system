@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
@@ -14,6 +15,7 @@ const appCheck = initializeAppCheck(app, {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app, 'asia-northeast1');
 
 // --- 認証状態の監視 ---
 onAuthStateChanged(auth, (user) => {
@@ -57,18 +59,79 @@ function initDashboard() {
     document.getElementById('csv-export-button').addEventListener('click', exportOrdersToCSV);
     document.getElementById('close-modal-button').addEventListener('click', () => document.getElementById('order-details-modal').classList.add('hidden'));
 
-    // 各種設定
+    // オプション設定
     loadAndRenderOptions('servingStyles', 'serving-styles-list');
     loadAndRenderOptions('paymentMethods', 'payment-methods-list');
     document.getElementById('add-serving-style-button').addEventListener('click', () => addOption('servingStyles', 'new-serving-style'));
     document.getElementById('add-payment-method-button').addEventListener('click', () => addOption('paymentMethods', 'new-payment-method'));
+
+    // メール設定
     loadEmailSettings();
     document.getElementById('save-email-settings-button').addEventListener('click', saveEmailSettings);
+
+    // プレースホルダーの表示とコピー機能
+    renderPlaceholders();
 }
 
 // --- ログアウト処理 ---
 function onLogout() {
     signOut(auth).catch(error => console.error('ログアウトエラー', error));
+}
+
+// --- クリップボードコピー機能 ---
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.textContent = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+// --- コピーツールチップ表示機能 ---
+function showCopyTooltip(event) {
+    const tooltip = document.getElementById('copy-tooltip');
+    tooltip.style.left = `${event.pageX + 10}px`;
+    tooltip.style.top = `${event.pageY - 10}px`;
+    tooltip.classList.remove('hidden');
+    setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 1000);
+}
+
+// --- プレースホルダー一覧を動的に生成する機能 ---
+function renderPlaceholders() {
+    const placeholderList = document.getElementById('placeholders-list');
+    const placeholders = [
+        { key: '{customerName}', desc: 'お客様のお名前' },
+        { key: '{orderNumber}', desc: '注文番号' },
+        { key: '{totalPrice}', desc: '合計金額' },
+        { key: '{orderDate}', desc: '注文日時' },
+        { key: '{deliveryDate}', desc: '配送希望日' },
+        { key: '{customerAddress}', desc: 'お客様の住所' },
+        { key: '{customerPhone}', desc: 'お客様の電話番号' },
+        { key: '{itemsList}', desc: '注文商品の一覧' },
+        { key: '{dashboardUrl}', desc: '管理者向け注文詳細URL' },
+        { key: '{mealType}', desc: '食事タイミング' },
+        // ★追加: 未実装だったプレースホルダーの説明
+        { key: '{servingStyles}', desc: '提供スタイル' },
+        { key: '{paymentMethod}', desc: '支払い方法' },
+        { key: '{remarks}', desc: '備考欄' },
+    ];
+
+    placeholderList.innerHTML = '';
+    placeholders.forEach(p => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <code class="placeholder-copy bg-gray-200 p-1 rounded cursor-pointer hover:bg-gray-300">${p.key}</code>
+            <span class="ml-2 text-gray-600">- ${p.desc}</span>
+        `;
+        div.querySelector('.placeholder-copy').addEventListener('click', (e) => {
+            copyToClipboard(p.key);
+            showCopyTooltip(e);
+        });
+        placeholderList.appendChild(div);
+    });
 }
 
 // --- 商品管理機能 ---
@@ -203,13 +266,9 @@ function loadOrders() {
             allOrders.push(order);
             const tr = document.createElement('tr');
 
-            // ★変更点: ステータスに応じて背景色を設定
             let statusBgClass = 'bg-white';
-            if (order.status === '対応済') {
-                statusBgClass = 'bg-blue-50';
-            } else if (order.status === 'キャンセル') {
-                statusBgClass = 'bg-red-50';
-            }
+            if (order.status === '対応済') statusBgClass = 'bg-blue-50';
+            else if (order.status === 'キャンセル') statusBgClass = 'bg-red-50';
             tr.className = `${statusBgClass} border-b`;
 
             tr.innerHTML = `
@@ -226,10 +285,16 @@ function loadOrders() {
                 </td>
                 <td class="px-6 py-4">
                     <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
+                    <button class="send-complete-email-btn bg-green-500 text-white px-2 py-1 rounded text-xs ml-2 disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                            data-id="${order.id}" 
+                            ${order.status !== '対応済' || order.completionEmailSent ? 'disabled' : ''}>
+                        ${order.completionEmailSent ? '送信済' : '完了メール'}
+                    </button>
                 </td>
             `;
             tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
             tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
+            tr.querySelector('.send-complete-email-btn').addEventListener('click', (e) => handleSendCompletionEmail(e.target));
             ordersTableBody.appendChild(tr);
         });
     });
@@ -299,6 +364,25 @@ function exportOrdersToCSV() {
     document.body.removeChild(link);
 }
 
+async function handleSendCompletionEmail(button) {
+    const orderId = button.dataset.id;
+    if (!orderId) return;
+
+    button.disabled = true;
+    button.textContent = '送信中...';
+
+    try {
+        const sendEmail = httpsCallable(functions, 'sendCompletionEmail');
+        await sendEmail({ orderId });
+        alert('受付完了メールを送信しました。');
+    } catch (error) {
+        console.error("メール送信エラー:", error);
+        alert(`メールの送信に失敗しました: ${error.message}`);
+        button.disabled = false;
+        button.textContent = '完了メール';
+    }
+}
+
 // --- 各種設定機能 ---
 async function loadAndRenderOptions(collectionName, listElementId) {
     const listElement = document.getElementById(listElementId);
@@ -332,19 +416,32 @@ async function deleteOption(collectionName, id) {
 }
 
 async function loadEmailSettings() {
-    const docRef = doc(db, "settings", "storeInfo");
+    const docRef = doc(db, "settings", "emailTemplates");
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         const data = docSnap.data();
         document.getElementById('from-email').value = data.fromEmail || '';
         document.getElementById('admin-email').value = data.adminEmail || '';
+        document.getElementById('order-confirm-subject').value = data.orderConfirmSubject || '';
+        document.getElementById('order-confirm-body').value = data.orderConfirmBody || '';
+        document.getElementById('admin-notify-subject').value = data.adminNotifySubject || '';
+        document.getElementById('admin-notify-body').value = data.adminNotifyBody || '';
+        document.getElementById('process-complete-subject').value = data.processCompleteSubject || '';
+        document.getElementById('process-complete-body').value = data.processCompleteBody || '';
     }
 }
 
 async function saveEmailSettings() {
-    const fromEmail = document.getElementById('from-email').value;
-    const adminEmail = document.getElementById('admin-email').value;
-    const docRef = doc(db, "settings", "storeInfo");
-    await setDoc(docRef, { fromEmail, adminEmail }, { merge: true });
+    const data = {
+        fromEmail: document.getElementById('from-email').value,
+        adminEmail: document.getElementById('admin-email').value,
+        orderConfirmSubject: document.getElementById('order-confirm-subject').value,
+        orderConfirmBody: document.getElementById('order-confirm-body').value,
+        adminNotifySubject: document.getElementById('admin-notify-subject').value,
+        adminNotifyBody: document.getElementById('admin-notify-body').value,
+        processCompleteSubject: document.getElementById('process-complete-subject').value,
+        processCompleteBody: document.getElementById('process-complete-body').value,
+    };
+    await setDoc(doc(db, "settings", "emailTemplates"), data, { merge: true });
     alert('メール設定を保存しました。');
 }

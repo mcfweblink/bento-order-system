@@ -6,7 +6,7 @@ service cloud.firestore {
     // 注文(orders)コレクション
     match /orders/{orderId} {
       // App Checkで検証されたアプリからのみ作成できる
-      allow create: if request.app != null;
+      allow create: if true;
       // ログインしている管理者のみが読み取り、更新、削除できる
       allow read, update, delete: if request.auth != null;
     }

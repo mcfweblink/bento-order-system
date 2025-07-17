@@ -5,8 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理ダッシュボード</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Shift_JIS変換ライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
+    <style>
+        /* コピー完了ツールチップ用のスタイル */
+        #copy-tooltip {
+            position: absolute;
+            padding: 4px 8px;
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none; /* マウスイベントを透過させる */
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <div id="app-container" class="hidden">
@@ -23,7 +35,8 @@
                 <ul class="flex flex-wrap -mb-px font-medium text-center" id="tabs-container">
                     <li class="mr-2"><a href="#orders" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">受注管理</a></li>
                     <li class="mr-2"><a href="#products" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">商品管理</a></li>
-                    <li class="mr-2"><a href="#settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">各種設定</a></li>
+                    <li class="mr-2"><a href="#settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">オプション設定</a></li>
+                    <li class="mr-2"><a href="#email-settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">メール設定</a></li>
                 </ul>
             </div>
 
@@ -84,7 +97,7 @@
                             </div>
                             <div>
                                 <label for="product-image" class="block mb-1">商品画像（変更する場合のみ選択）</label>
-                                <input type="file" id="product-image" class="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <input type="file" id="product-image" accept="image/*" class="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                                 <img id="image-preview" class="mt-2 h-32 hidden rounded-md object-cover">
                             </div>
                             <div>
@@ -106,45 +119,93 @@
                     </div>
                 </div>
 
-                <!-- 各種設定タブ -->
+                <!-- オプション設定タブ -->
                 <div id="settings" class="tab-content hidden">
-                    <h2 class="text-2xl font-bold mb-4">各種設定</h2>
+                    <h2 class="text-2xl font-bold mb-4">オプション設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
-                        <!-- オプション管理 -->
                         <div>
-                            <h3 class="text-lg font-semibold mb-2">オプション管理</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <h4 class="font-medium mb-2">提供スタイル</h4>
-                                    <div id="serving-styles-list" class="space-y-2"></div>
-                                    <div class="flex gap-2 mt-2">
-                                        <input type="text" id="new-serving-style" placeholder="新しいスタイル名" class="flex-grow p-2 border rounded">
-                                        <button id="add-serving-style-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium mb-2">支払い方法</h4>
-                                    <div id="payment-methods-list" class="space-y-2"></div>
-                                    <div class="flex gap-2 mt-2">
-                                        <input type="text" id="new-payment-method" placeholder="新しい支払い方法" class="flex-grow p-2 border rounded">
-                                        <button id="add-payment-method-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
-                                    </div>
-                                </div>
+                            <h3 class="text-lg font-semibold mb-2">提供スタイル</h3>
+                            <div id="serving-styles-list" class="space-y-2"></div>
+                            <div class="flex gap-2 mt-2">
+                                <input type="text" id="new-serving-style" placeholder="新しいスタイル名" class="flex-grow p-2 border rounded">
+                                <button id="add-serving-style-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
                             </div>
                         </div>
-                        <!-- メール設定 -->
                         <div>
-                            <h3 class="text-lg font-semibold mb-2">メール設定</h3>
-                            <div id="email-settings-form" class="space-y-4">
+                            <h3 class="text-lg font-semibold mb-2">支払い方法</h3>
+                            <div id="payment-methods-list" class="space-y-2"></div>
+                            <div class="flex gap-2 mt-2">
+                                <input type="text" id="new-payment-method" placeholder="新しい支払い方法" class="flex-grow p-2 border rounded">
+                                <button id="add-payment-method-button" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">追加</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- メール設定タブ -->
+                <div id="email-settings" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">メール設定</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
+                        <div class="border p-4 rounded-md">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">基本設定</h3>
+                            <div class="space-y-4">
                                 <div>
-                                    <label for="from-email" class="block mb-1">送信元メールアドレス (SendGridで認証済みのもの)</label>
+                                    <label for="from-email" class="block mb-1 font-medium">送信元メールアドレス (SendGridで認証済みのもの)</label>
                                     <input type="email" id="from-email" class="w-full p-2 border rounded">
                                 </div>
                                 <div>
-                                    <label for="admin-email" class="block mb-1">管理者通知先メールアドレス</label>
+                                    <label for="admin-email" class="block mb-1 font-medium">管理者通知先メールアドレス</label>
                                     <input type="email" id="admin-email" class="w-full p-2 border rounded">
                                 </div>
-                                <button id="save-email-settings-button" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">メール設定を保存</button>
+                            </div>
+                        </div>
+                        <div class="border p-4 rounded-md">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">注文確認メール（お客様向け）</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="order-confirm-subject" class="block mb-1 font-medium">件名</label>
+                                    <input type="text" id="order-confirm-subject" class="w-full p-2 border rounded">
+                                </div>
+                                <div>
+                                    <label for="order-confirm-body" class="block mb-1 font-medium">本文</label>
+                                    <textarea id="order-confirm-body" rows="8" class="w-full p-2 border rounded font-mono text-sm"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border p-4 rounded-md">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">新規注文通知メール（管理者向け）</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="admin-notify-subject" class="block mb-1 font-medium">件名</label>
+                                    <input type="text" id="admin-notify-subject" class="w-full p-2 border rounded">
+                                </div>
+                                <div>
+                                    <label for="admin-notify-body" class="block mb-1 font-medium">本文</label>
+                                    <textarea id="admin-notify-body" rows="8" class="w-full p-2 border rounded font-mono text-sm"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border p-4 rounded-md">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">受付完了メール（お客様向け）</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="process-complete-subject" class="block mb-1 font-medium">件名</label>
+                                    <input type="text" id="process-complete-subject" class="w-full p-2 border rounded">
+                                </div>
+                                <div>
+                                    <label for="process-complete-body" class="block mb-1 font-medium">本文</label>
+                                    <textarea id="process-complete-body" rows="8" class="w-full p-2 border rounded font-mono text-sm"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-4">
+                            <button id="save-email-settings-button" class="bg-blue-500 text-white px-8 py-2 rounded-lg hover:bg-blue-600">全てのメール設定を保存</button>
+                        </div>
+                        <div class="pt-4 border-t">
+                            <h4 class="font-semibold">利用可能な変数（クリックでコピー）</h4>
+                            <p class="text-sm text-gray-600">メール本文内に以下の変数を記述すると、実際の注文情報に自動で置き換えられます。</p>
+                            <div id="placeholders-list" class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                <!-- プレースホルダーがJSでここに生成されます -->
                             </div>
                         </div>
                     </div>
@@ -153,7 +214,6 @@
         </main>
     </div>
 
-    <!-- 注文詳細モーダル -->
     <div id="order-details-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
@@ -169,6 +229,9 @@
     <div id="loading" class="min-h-screen flex items-center justify-center">
         <p>読み込み中...</p>
     </div>
+
+    <div id="copy-tooltip" class="hidden">コピーしました</div>
+
     <script type="module" src="../js/dashboard.js"></script>
 </body>
 </html>
