@@ -113,7 +113,6 @@ function renderPlaceholders() {
         { key: '{itemsList}', desc: '注文商品の一覧' },
         { key: '{dashboardUrl}', desc: '管理者向け注文詳細URL' },
         { key: '{mealType}', desc: '食事タイミング' },
-        // ★追加: 未実装だったプレースホルダーの説明
         { key: '{servingStyles}', desc: '提供スタイル' },
         { key: '{paymentMethod}', desc: '支払い方法' },
         { key: '{remarks}', desc: '備考欄' },
@@ -334,14 +333,26 @@ function showOrderDetails(order) {
 function exportOrdersToCSV() {
     const encoding = document.getElementById('csv-encoding-select').value;
     let csvContent = "";
-    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "合計金額", "ステータス", "注文内容", "備考"];
+    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "合計金額", "ステータス", "注文内容", "備考", "食事タイミング", "提供スタイル", "支払い方法"];
     csvContent += headers.join(",") + "\r\n";
     allOrders.forEach(order => {
         const orderDate = new Date(order.orderDate.seconds * 1000).toLocaleString();
         const items = order.items.map(i => `${i.name}(${i.quantity})`).join(' | ');
+        const servingStyles = (order.servingStyles || []).join(' | ');
         const row = [
-            order.orderNumber, `"${orderDate}"`, `"${order.customerName}"`, `"${order.customerAddress}"`, `"${order.customerPhone}"`, `"${order.customerEmail}"`,
-            order.totalPrice, order.status, `"${items}"`, `"${(order.remarks || '').replace(/"/g, '""')}"`
+            order.orderNumber || '',
+            `"${orderDate}"`,
+            `"${order.customerName || ''}"`,
+            `"${order.customerAddress || ''}"`,
+            `"${order.customerPhone || ''}"`,
+            `"${order.customerEmail || ''}"`,
+            order.totalPrice || 0,
+            order.status || '',
+            `"${items}"`,
+            `"${(order.remarks || '').replace(/"/g, '""')}"`,
+            `"${order.mealType || ''}"`,
+            `"${servingStyles}"`,
+            `"${order.paymentMethod || ''}"`
         ];
         csvContent += row.join(",") + "\r\n";
     });
