@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SendGrid ドメイン認証ガイド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans JP', sans-serif; }
+        .code-block { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-white shadow-md">
+    </header>
+    <main class="container mx-auto p-6">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">【誰でもできる】SendGrid ドメイン認証 完全ガイド</h2>
+            <div class="space-y-8 text-gray-700">
+                <!-- Section 1 -->
+                <section>
+                    <h3 class="text-2xl font-semibold mb-3 border-l-4 border-orange-500 pl-3">1. はじめに</h3>
+                    <div class="space-y-4 pl-4">
+                        <div>
+                            <h4 class="text-lg font-semibold">1.1. この文書の目的</h4>
+                            <p>この文書は、SendGridを使って独自ドメイン（例: your-shop.com）からメールを送信する際に、そのメールが迷惑メールフォルダに入るのを防ぐための「ドメイン認証（Domain Authentication）」の手順を、誰でも行えるように詳細に解説するものです。</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold">1.2. なぜドメイン認証が必要か？</h4>
+                            <p>メールの差出人が`@gmail.com`のような無料メールアドレスだと、受信サーバーから「なりすましメール」と疑われ、迷惑メールと判断されやすくなります。「ドメイン認証」は、「このメールは、本物の公式サイトから送られた、正真正銘のメールです」という公式な身分証明を行う設定です。この身分証明により、メールの信頼性が劇的に向上し、お客様の受信ボックスに直接届くようになります。</p>
+                        </div>
+                    </div>
+                </section>
+                <!-- Section 2 -->
+                <section>
+                    <h3 class="text-2xl font-semibold mb-3 border-l-4 border-orange-500 pl-3">2. 準備するもの</h3>
+                    <ul class="list-disc list-inside space-y-2 pl-4">
+                        <li><b>SendGridのアカウント情報:</b> SendGridにログインするためのIDとパスワード。</li>
+                        <li><b>ドメイン管理会社のログイン情報:</b> 認証したいドメイン（例: chance.or.jp）を取得したサービス（さくらインターネット、お名前.com、Xserverなど）の、DNS設定画面にアクセスするためのIDとパスワード。</li>
+                    </ul>
+                </section>
+                <!-- Section 3 -->
+                <section>
+                    <h3 class="text-2xl font-semibold mb-3 border-l-4 border-orange-500 pl-3">3. 設定手順</h3>
+                    <div class="space-y-6 pl-4">
+                        <div>
+                            <h4 class="text-lg font-semibold">Step 1: SendGridで認証を開始し、設定情報を取得する</h4>
+                            <ol class="list-decimal list-inside space-y-2 pl-4">
+                                <li><b><a href="https://app.sendgrid.com/" target="_blank" class="text-blue-600 hover:underline">SendGridの管理画面</a></b>にログインします。</li>
+                                <li>左側のメニューから「<b>Settings</b>」>「<b>Sender Authentication</b>」の順にクリックします。</li>
+                                <li>「Domain Authentication」のセクションにある「<b>Authenticate Your Domain</b>」または「<b>Get Started</b>」というボタンをクリックします。</li>
+                                <li><b>Which DNS host do you use? (DNSホストは？)</b><br>お使いのドメイン管理会社が一覧にあれば選択します。なければ、「<b>Other Host (Not Listed)</b>」または「<b>I'm not sure</b>」で問題ありません。</li>
+                                <li><b>Would you also like to brand the links for this domain? (リンクもブランディングしますか？)</b><br>「<b>No</b>」を選択してください。</li>
+                                <li>「<b>Next</b>」をクリックします。</li>
+                                <li><b>From Domain (どのドメインを認証しますか？)</b><br>ここに、認証したいドメイン名（例: `chance.or.jp`）だけを入力します。`https://`や`www.`は不要です。</li>
+                                <li>「<b>Next</b>」をクリックします。</li>
+                                <li>画面に、<b>3つのCNAMEレコード</b>が表示されます。それぞれのレコードに「<b>TYPE</b>」「<b>HOST</b>」「<b>VALUE</b>」の3つの情報が表示されます。この画面は開いたままにしておきます。</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold">Step 2: ドメイン管理会社でDNSレコードを設定する</h4>
+                            <ol class="list-decimal list-inside space-y-2 pl-4">
+                                <li>ドメインを取得した会社のDNS設定画面にログインし、「DNSレコード設定」や「ネームサーバー設定」といったメニューを探して開きます。</li>
+                                <li>DNSレコードを追加する機能を使って、SendGridから表示された3つのCNAMEレコードを、一つずつ正確に追加していきます。</li>
+                            </ol>
+                            <div class="mt-4 overflow-x-auto">
+                                <table class="w-full border">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="border p-2">設定項目（呼び名は各社で異なります）</th>
+                                            <th class="border p-2">入力する内容</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="border p-2"><b>タイプ (Type)</b></td>
+                                            <td class="border p-2">`CNAME` を選択します。</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border p-2"><b>ホスト名 (Host / Name / エントリー名)</b></td>
+                                            <td class="border p-2">SendGridで表示された「<b>HOST</b>」の値を、そのままコピー＆ペーストします。（例: `s1._domainkey`）</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border p-2"><b>値 (Value / Data / データ)</b></td>
+                                            <td class="border p-2">SendGridで表示された「<b>VALUE</b>」の値をコピー＆ペーストし、<b>必ず最後に半角のドット（`.`）を追加します。</b></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border p-2"><b>TTL</b></td>
+                                            <td class="border p-2">指定する項目があれば、何も変更せず、デフォルトのままにします。</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Section 4 -->
+                <section>
+                    <h3 class="text-2xl font-semibold mb-3 border-l-4 border-red-500 pl-3">4.【最重要】よくある失敗例と、その解決策</h3>
+                    <div class="space-y-4 pl-4">
+                        <div>
+                            <h4 class="text-lg font-semibold">4.1. 注意点①：ホスト名の入力ミス</h4>
+                            <p>ドメイン管理会社のシステムによっては、ホスト名に`s1._domainkey`と入力すると、自動的にドメイン名（`.chance.or.jp`）を補完してくれる場合があります。</p>
+                            <ul class="list-disc list-inside space-y-1 pl-4">
+                                <li><b>正しい状態:</b> `s1._domainkey` → `s1._domainkey.chance.or.jp`</li>
+                                <li><b>よくある間違い:</b> `s1._domainkey.chance.or.jp`と入力してしまう → `s1._domainkey.chance.or.jp.chance.or.jp`となり、認証に失敗します。</li>
+                                <li><b>対策:</b> 基本的には、SendGridに表示されたホスト名（ドメイン部分を含まない`s1._domainkey`など）だけを入力してください。</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold">4.2. 注意点②：値の最後に付ける「ドット（.）」</h4>
+                            <p>これが最も重要で、見落としやすいポイントです。</p>
+                             <ul class="list-disc list-inside space-y-1 pl-4">
+                                <li><b>問題:</b> 多くのDNS設定画面では、値の最後にドットがないと、自動的に自社のドメイン名（`.chance.or.jp`）を付け足してしまいます。</li>
+                                <li><b>解決策:</b> 値の最後に<b>半角のドット（`.`）</b>を追加することで、「これが完全な住所なので、これ以上何も付け足さないでください」という明確な指示になります。</li>
+                            </ul>
+                            <p class="mt-2"><b>正しい入力例:</b></p>
+                            <div class="code-block">s2.domainkey.u123.sendgrid.net<span class="text-red-500 font-bold">.</span></div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Section 5 -->
+                 <section>
+                    <h3 class="text-2xl font-semibold mb-3 border-l-4 border-green-500 pl-3">5. 最終確認</h3>
+                    <ol class="list-decimal list-inside space-y-2 pl-4">
+                        <li><b>DNSの浸透を待つ:</b> DNSの設定変更がインターネット全体に反映されるまで、数分〜最大48時間待ちます。焦らず、ゆっくり待つのが一番です。</li>
+                        <li><b>認証の確認:</b> SendGridの画面に戻り、「<b>I've added these records.</b>」というチェックボックスにチェックを入れ、「<b>Verify</b>」ボタンをクリックします。</li>
+                        <li>緑色で「<b>It worked!</b>」と表示されれば、ドメイン認証は成功です。これで、認証したドメインのメールアドレスを、迷惑メールにならずに送信できるようになります。</li>
+                    </ol>
+                </section>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
