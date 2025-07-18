@@ -315,10 +315,16 @@ async function loadOrders() {
                 </td>
                 <td class="px-6 py-4">
                     <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
+                    <button class="send-complete-email-btn bg-green-500 text-white px-2 py-1 rounded text-xs ml-2 disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                            data-id="${order.id}" 
+                            ${order.status !== '対応済' || order.completionEmailSent ? 'disabled' : ''}>
+                        ${order.completionEmailSent ? '送信済' : '完了メール'}
+                    </button>
                 </td>
             `;
             tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
             tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
+            tr.querySelector('.send-complete-email-btn').addEventListener('click', (e) => handleSendCompletionEmail(e.target));
             ordersTableBody.appendChild(tr);
         });
         updateSortHeaders();
@@ -425,6 +431,25 @@ function exportOrdersToCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+async function handleSendCompletionEmail(button) {
+    const orderId = button.dataset.id;
+    if (!orderId) return;
+
+    button.disabled = true;
+    button.textContent = '送信中...';
+
+    try {
+        const sendEmail = httpsCallable(functions, 'sendCompletionEmail');
+        await sendEmail({ orderId });
+        alert('受付完了メールを送信しました。');
+    } catch (error) {
+        console.error("メール送信エラー:", error);
+        alert(`メールの送信に失敗しました: ${error.message}`);
+        button.disabled = false;
+        button.textContent = '完了メール';
+    }
 }
 
 // --- 各種設定機能 ---
