@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
@@ -14,6 +15,7 @@ const appCheck = initializeAppCheck(app, {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app, 'asia-northeast1');
 
 // --- 認証状態の監視 ---
 onAuthStateChanged(auth, (user) => {
@@ -86,6 +88,27 @@ function initDashboard() {
 // --- ログアウト処理 ---
 function onLogout() {
     signOut(auth).catch(error => console.error('ログアウトエラー', error));
+}
+
+// --- クリップボードコピー機能 ---
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.textContent = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+// --- コピーツールチップ表示機能 ---
+function showCopyTooltip(event) {
+    const tooltip = document.getElementById('copy-tooltip');
+    tooltip.style.left = `${event.pageX + 10}px`;
+    tooltip.style.top = `${event.pageY - 10}px`;
+    tooltip.classList.remove('hidden');
+    setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 1000);
 }
 
 // --- プレースホルダー一覧を動的に生成する機能 ---
