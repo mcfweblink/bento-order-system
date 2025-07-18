@@ -1,24 +1,29 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {initializeApp} = require("firebase-admin/app");
+const admin = require("firebase-admin"); // ★★★★★ この一行が欠落していました ★★★★★
 const {getFirestore} = require("firebase-admin/firestore");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const sgMail = require("@sendgrid/mail");
 
+// 関数のデフォルトリージョンを東京に設定
 setGlobalOptions({region: "asia-northeast1"});
-initializeApp();
+
+admin.initializeApp();
 const db = getFirestore();
 
+// SendGridのAPIキーを環境変数（Secret Manager）から取得
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
+} else {
+  console.warn("SendGrid APIキーが設定されていません。メール送信は機能しません。");
 }
 
 // --- 共通ヘルパー関数: 変数を置換する ---
 const replacePlaceholders = (text = "", orderData = {}) => {
     const itemsList = (orderData.items || []).map((item) => `${item.name} x ${item.quantity}`).join("\n");
     const orderDate = orderData.orderDate ? new Date(orderData.orderDate.seconds * 1000).toLocaleString("ja-JP") : "N/A";
-
+    
     return text
         .replace(/{customerName}/g, orderData.customerName || "")
         .replace(/{orderNumber}/g, orderData.orderNumber || "採番中")
@@ -30,7 +35,6 @@ const replacePlaceholders = (text = "", orderData = {}) => {
         .replace(/{itemsList}/g, itemsList)
         .replace(/{dashboardUrl}/g, `https://console.firebase.google.com/project/${process.env.GCLOUD_PROJECT}/firestore/data/~2Forders~2F${orderData.id || ""}`)
         .replace(/{mealType}/g, orderData.mealType || "")
-        // ★追加: 未実装だったプレースホルダーの置換処理
         .replace(/{servingStyles}/g, (orderData.servingStyles || []).join(", ") || "指定なし")
         .replace(/{paymentMethod}/g, orderData.paymentMethod || "")
         .replace(/{remarks}/g, orderData.remarks || "なし");
@@ -100,7 +104,7 @@ exports.sendCompletionEmail = onCall({ enforceAppCheck: true, secrets: ["SENDGRI
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "認証が必要です。");
     }
-
+    
     const orderId = request.data.orderId;
     if (!orderId) {
       throw new HttpsError("invalid-argument", "注文IDが必要です。");
@@ -126,9 +130,9 @@ exports.sendCompletionEmail = onCall({ enforceAppCheck: true, secrets: ["SENDGRI
 
     const subject = replacePlaceholders(settings.processCompleteSubject || "ご注文の準備ができました", orderData);
     const body = replacePlaceholders(settings.processCompleteBody || "ご注文の商品準備が完了しました。", orderData);
-
+    
     const msg = { to: orderData.customerEmail, from: fromEmail, subject, text: body };
-
+    
     try {
         await sgMail.send(msg);
         await orderRef.update({ completionEmailSent: true });
@@ -167,3 +171,47 @@ exports.getPublicData = onCall({enforceAppCheck: true}, async (request) => {
     throw new HttpsError("internal", "Unable to fetch public data.");
   }
 });
+
+
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {getStorage} = require("firebase-admin/storage");
+
+/**
+ * 毎日午前3時に実行される、FirestoreのデータをCloud Storageにバックアップする関数
+ */
+exports.scheduledFirestoreExport = onSchedule(
+    {
+      schedule: "every day 03:00",
+      timeZone: "Asia/Tokyo",
+    },
+    async (event) => {
+      // このコードは、firebase-admin v11.9.0以降が必要です。
+      // initializeApp()はファイルの先頭で一度だけ呼び出してください。
+      const firestoreClient = new admin.firestore.v1.FirestoreAdminClient();
+      const bucket = getStorage().bucket(); // デフォルトのCloud Storageバケット
+
+      const projectId = process.env.GCLOUD_PROJECT;
+      const databaseName = firestoreClient.databasePath(projectId, "(default)");
+      const bucketName = `gs://${bucket.name}`;
+
+      const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\..+/, "");
+      const outputUriPrefix = `${bucketName}/backups/${timestamp}`;
+
+      console.log(`Starting Firestore export to ${outputUriPrefix}`);
+
+      try {
+        const [operation] = await firestoreClient.exportDocuments({
+          name: databaseName,
+          outputUriPrefix: outputUriPrefix,
+          collectionIds: [], // 空の配列ですべてのコレクションを対象
+        });
+        const [response] = await operation.promise();
+        console.log(`Export operation successful: ${response.name}`);
+        console.log(`Output written to ${response.outputUriPrefix}`);
+        return null;
+      } catch (err) {
+        console.error(err);
+        throw new Error("Export failed");
+      }
+    },
+);
