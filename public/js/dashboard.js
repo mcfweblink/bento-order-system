@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
@@ -14,6 +15,7 @@ const appCheck = initializeAppCheck(app, {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app, 'asia-northeast1');
 
 // --- 認証状態の監視 ---
 onAuthStateChanged(auth, (user) => {
@@ -67,7 +69,7 @@ function initDashboard() {
     });
     document.getElementById('csv-export-button').addEventListener('click', exportOrdersToCSV);
     document.getElementById('close-modal-button').addEventListener('click', () => document.getElementById('order-details-modal').classList.add('hidden'));
-    loadOrders(); // 初回読み込み
+    loadOrders();
 
     // オプション設定
     loadAndRenderOptions('servingStyles', 'serving-styles-list');
@@ -88,59 +90,12 @@ function onLogout() {
     signOut(auth).catch(error => console.error('ログアウトエラー', error));
 }
 
-// --- クリップボードコピー機能 ---
-function copyToClipboard(text) {
-    const textarea = document.createElement('textarea');
-    textarea.textContent = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-}
-
-// --- コピーツールチップ表示機能 ---
-function showCopyTooltip(event) {
-    const tooltip = document.getElementById('copy-tooltip');
-    tooltip.style.left = `${event.pageX + 10}px`;
-    tooltip.style.top = `${event.pageY - 10}px`;
-    tooltip.classList.remove('hidden');
-    setTimeout(() => {
-        tooltip.classList.add('hidden');
-    }, 1000);
-}
-
-// --- プレースホルダー一覧を動的に生成する機能 ---
-function renderPlaceholders() {
-    const placeholderList = document.getElementById('placeholders-list');
-    const placeholders = [
-        { key: '{customerName}', desc: 'お客様のお名前' },
-        { key: '{orderNumber}', desc: '注文番号' },
-        { key: '{totalPrice}', desc: '合計金額' },
-        { key: '{orderDate}', desc: '注文日時' },
-        { key: '{deliveryDate}', desc: '配送希望日' },
-        { key: '{customerAddress}', desc: 'お客様の住所' },
-        { key: '{customerPhone}', desc: 'お客様の電話番号' },
-        { key: '{itemsList}', desc: '注文商品の一覧' },
-        { key: '{dashboardUrl}', desc: '管理者向け注文詳細URL' },
-        { key: '{mealType}', desc: '食事タイミング' },
-        { key: '{servingStyles}', desc: '提供スタイル' },
-        { key: '{paymentMethod}', desc: '支払い方法' },
-        { key: '{remarks}', desc: '備考欄' },
-    ];
-
-    placeholderList.innerHTML = '';
-    placeholders.forEach(p => {
-        const div = document.createElement('div');
-        div.innerHTML = `
-            <code class="placeholder-copy bg-gray-200 p-1 rounded cursor-pointer hover:bg-gray-300">${p.key}</code>
-            <span class="ml-2 text-gray-600">- ${p.desc}</span>
-        `;
-        div.querySelector('.placeholder-copy').addEventListener('click', (e) => {
-            copyToClipboard(p.key);
-            showCopyTooltip(e);
-        });
-        placeholderList.appendChild(div);
-    });
+// --- ヘルパー関数: 安全なDOM要素を作成 ---
+function createSafeElement(tag, classes = [], textContent = '') {
+    const el = document.createElement(tag);
+    if (classes.length > 0) el.className = classes.join(' ');
+    el.textContent = textContent;
+    return el;
 }
 
 // --- 商品管理機能 ---
@@ -168,19 +123,21 @@ async function loadProductsAdmin() {
         productsListAdmin.innerHTML = '';
         snapshot.forEach(doc => {
             const product = { id: doc.id, ...doc.data() };
-            const div = document.createElement('div');
-            div.className = 'flex justify-between items-center p-2 border rounded';
-            div.innerHTML = `
-                <span>${product.name} (${product.price}円) - ${product.isVisible ? '表示中' : '非表示'}</span>
-                <div class="flex gap-2">
-                    <button class="duplicate-product-btn bg-blue-500 text-white px-3 py-1 rounded text-sm">複製</button>
-                    <button class="edit-product-btn bg-yellow-500 text-white px-3 py-1 rounded text-sm">編集</button>
-                    <button class="delete-product-btn bg-red-500 text-white px-3 py-1 rounded text-sm">削除</button>
-                </div>
-            `;
-            div.querySelector('.duplicate-product-btn').addEventListener('click', () => duplicateProduct(product));
-            div.querySelector('.edit-product-btn').addEventListener('click', () => editProduct(product));
-            div.querySelector('.delete-product-btn').addEventListener('click', () => deleteProduct(product));
+            const div = createSafeElement('div', ['flex', 'justify-between', 'items-center', 'p-2', 'border', 'rounded']);
+
+            const infoSpan = createSafeElement('span', [], `${product.name} (${product.price}円) - ${product.isVisible ? '表示中' : '非表示'}`);
+
+            const buttonsDiv = createSafeElement('div', ['flex', 'gap-2']);
+            const duplicateBtn = createSafeElement('button', ['duplicate-product-btn', 'bg-blue-500', 'text-white', 'px-3', 'py-1', 'rounded', 'text-sm'], '複製');
+            const editBtn = createSafeElement('button', ['edit-product-btn', 'bg-yellow-500', 'text-white', 'px-3', 'py-1', 'rounded', 'text-sm'], '編集');
+            const deleteBtn = createSafeElement('button', ['delete-product-btn', 'bg-red-500', 'text-white', 'px-3', 'py-1', 'rounded', 'text-sm'], '削除');
+
+            duplicateBtn.addEventListener('click', () => duplicateProduct(product));
+            editBtn.addEventListener('click', () => editProduct(product));
+            deleteBtn.addEventListener('click', () => deleteProduct(product));
+
+            buttonsDiv.append(duplicateBtn, editBtn, deleteBtn);
+            div.append(infoSpan, buttonsDiv);
             productsListAdmin.appendChild(div);
         });
     });
@@ -295,28 +252,38 @@ async function loadOrders() {
             const order = { id: doc.id, ...doc.data() };
             displayedOrders.push(order);
             const tr = document.createElement('tr');
+
             let statusBgClass = 'bg-white';
             if (order.status === '対応済') statusBgClass = 'bg-blue-50';
             else if (order.status === 'キャンセル') statusBgClass = 'bg-red-50';
             tr.className = `${statusBgClass} border-b`;
-            tr.innerHTML = `
-                <td class="px-6 py-4">${order.orderNumber || 'N/A'}</td>
-                <td class="px-6 py-4">${new Date(order.orderDate.seconds * 1000).toLocaleString()}</td>
-                <td class="px-6 py-4">${order.customerName}</td>
-                <td class="px-6 py-4">${order.totalPrice}円</td>
-                <td class="px-6 py-4">
-                    <select class="status-select border rounded p-1 bg-white" data-id="${order.id}">
-                        <option value="未対応" ${order.status === '未対応' ? 'selected' : ''}>未対応</option>
-                        <option value="対応済" ${order.status === '対応済' ? 'selected' : ''}>対応済</option>
-                        <option value="キャンセル" ${order.status === 'キャンセル' ? 'selected' : ''}>キャンセル</option>
-                    </select>
-                </td>
-                <td class="px-6 py-4">
-                    <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
-                </td>
+
+            // セルを個別作成
+            const tdOrderNumber = createSafeElement('td', ['px-6', 'py-4'], order.orderNumber || 'N/A');
+            const tdOrderDate = createSafeElement('td', ['px-6', 'py-4'], new Date(order.orderDate.seconds * 1000).toLocaleString());
+            const tdCustomerName = createSafeElement('td', ['px-6', 'py-4'], order.customerName);
+            const tdTotalPrice = createSafeElement('td', ['px-6', 'py-4'], `${order.totalPrice}円`);
+
+            // ステータス選択
+            const tdStatus = createSafeElement('td', ['px-6', 'py-4']);
+            const selectStatus = document.createElement('select');
+            selectStatus.className = 'status-select border rounded p-1 bg-white';
+            selectStatus.dataset.id = order.id;
+            selectStatus.innerHTML = `
+                <option value="未対応" ${order.status === '未対応' ? 'selected' : ''}>未対応</option>
+                <option value="対応済" ${order.status === '対応済' ? 'selected' : ''}>対応済</option>
+                <option value="キャンセル" ${order.status === 'キャンセル' ? 'selected' : ''}>キャンセル</option>
             `;
-            tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
-            tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
+            selectStatus.addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
+            tdStatus.appendChild(selectStatus);
+
+            // 操作ボタン
+            const tdActions = createSafeElement('td', ['px-6', 'py-4']);
+            const viewBtn = createSafeElement('button', ['view-order-btn', 'text-blue-600', 'hover:underline'], '詳細');
+            viewBtn.addEventListener('click', () => showOrderDetails(order));
+            tdActions.appendChild(viewBtn);
+
+            tr.append(tdOrderNumber, tdOrderDate, tdCustomerName, tdTotalPrice, tdStatus, tdActions);
             ordersTableBody.appendChild(tr);
         });
         updateSortHeaders();
@@ -355,28 +322,47 @@ async function updateOrderStatus(id, status) {
 
 function showOrderDetails(order) {
     const modalContent = document.getElementById('modal-content');
-    const itemsHtml = order.items.map(item => `<li>${item.name} x ${item.quantity} (${item.price * item.quantity}円)</li>`).join('');
-    modalContent.innerHTML = `
-        <div class="space-y-4">
-            <p><strong>注文番号:</strong> ${order.orderNumber || 'N/A'}</p>
-            <p><strong>注文日時:</strong> ${new Date(order.orderDate.seconds * 1000).toLocaleString()}</p>
-            <hr>
-            <p><strong>お名前:</strong> ${order.customerName}</p>
-            <p><strong>ご住所:</strong> ${order.customerAddress}</p>
-            <p><strong>電話番号:</strong> ${order.customerPhone}</p>
-            <p><strong>メールアドレス:</strong> ${order.customerEmail}</p>
-            <hr>
-            <p><strong>配送希望日:</strong> ${order.deliveryDate}</p>
-            <p><strong>食事タイミング:</strong> ${order.mealType}</p>
-            <p><strong>支払い方法:</strong> ${order.paymentMethod}</p>
-            <p><strong>提供スタイル:</strong> ${order.servingStyles.join(', ') || '指定なし'}</p>
-            <hr>
-            <div><strong>注文商品:</strong><ul class="list-disc list-inside">${itemsHtml}</ul></div>
-            <p><strong>合計金額:</strong> ${order.totalPrice}円</p>
-            <hr>
-            <p><strong>備考:</strong> ${order.remarks || 'なし'}</p>
-        </div>
-    `;
+    modalContent.innerHTML = ''; // コンテンツをクリア
+
+    const contentDiv = createSafeElement('div', ['space-y-4']);
+
+    const createDetailRow = (label, value) => {
+        const p = createSafeElement('p');
+        const strong = createSafeElement('strong', [], `${label}: `);
+        p.appendChild(strong);
+        p.append(value); // textContentではなくappendでテキストノードを追加
+        return p;
+    };
+
+    contentDiv.appendChild(createDetailRow('注文番号', order.orderNumber || 'N/A'));
+    contentDiv.appendChild(createDetailRow('注文日時', new Date(order.orderDate.seconds * 1000).toLocaleString()));
+    contentDiv.appendChild(document.createElement('hr'));
+    contentDiv.appendChild(createDetailRow('お名前', order.customerName));
+    contentDiv.appendChild(createDetailRow('ご住所', order.customerAddress));
+    contentDiv.appendChild(createDetailRow('電話番号', order.customerPhone));
+    contentDiv.appendChild(createDetailRow('メールアドレス', order.customerEmail));
+    contentDiv.appendChild(document.createElement('hr'));
+    contentDiv.appendChild(createDetailRow('配送希望日', order.deliveryDate));
+    contentDiv.appendChild(createDetailRow('食事タイミング', order.mealType));
+    contentDiv.appendChild(createDetailRow('支払い方法', order.paymentMethod));
+    contentDiv.appendChild(createDetailRow('提供スタイル', order.servingStyles.join(', ') || '指定なし'));
+    contentDiv.appendChild(document.createElement('hr'));
+
+    const itemsDiv = createSafeElement('div');
+    const itemsStrong = createSafeElement('strong', [], '注文商品:');
+    const itemsUl = createSafeElement('ul', ['list-disc', 'list-inside']);
+    order.items.forEach(item => {
+        const li = createSafeElement('li', [], `${item.name} x ${item.quantity} (${item.price * item.quantity}円)`);
+        itemsUl.appendChild(li);
+    });
+    itemsDiv.append(itemsStrong, itemsUl);
+    contentDiv.appendChild(itemsDiv);
+
+    contentDiv.appendChild(createDetailRow('合計金額', `${order.totalPrice}円`));
+    contentDiv.appendChild(document.createElement('hr'));
+    contentDiv.appendChild(createDetailRow('備考', order.remarks || 'なし'));
+
+    modalContent.appendChild(contentDiv);
     document.getElementById('order-details-modal').classList.remove('hidden');
 }
 
@@ -432,13 +418,11 @@ async function loadAndRenderOptions(collectionName, listElementId) {
         listElement.innerHTML = '';
         snapshot.forEach(doc => {
             const item = { id: doc.id, ...doc.data() };
-            const div = document.createElement('div');
-            div.className = 'flex justify-between items-center p-2 border-b';
-            div.innerHTML = `
-                <span>${item.name}</span>
-                <button class="delete-option-btn text-red-500 text-xl">&times;</button>
-            `;
-            div.querySelector('.delete-option-btn').addEventListener('click', () => deleteOption(collectionName, item.id));
+            const div = createSafeElement('div', ['flex', 'justify-between', 'items-center', 'p-2', 'border-b']);
+            const span = createSafeElement('span', [], item.name);
+            const button = createSafeElement('button', ['delete-option-btn', 'text-red-500', 'text-xl'], '×');
+            button.addEventListener('click', () => deleteOption(collectionName, item.id));
+            div.append(span, button);
             listElement.appendChild(div);
         });
     });

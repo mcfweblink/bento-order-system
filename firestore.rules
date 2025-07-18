@@ -3,37 +3,60 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- 共通関数 ---
+    // 送信されてきた注文データが、正しい形式か検証する関数
+    function isOrderDataValid(data) {
+      return data.customerName is string && data.customerName.size() > 0 && data.customerName.size() < 100
+          && data.customerAddress is string && data.customerAddress.size() > 0 && data.customerAddress.size() < 200
+          && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() < 20
+          && data.customerEmail is string && data.customerEmail.matches('^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$')
+          && data.deliveryDate is string && data.deliveryDate.size() == 10
+          && data.items is list && data.items.size() > 0
+          && data.totalPrice is number && data.totalPrice >= 0
+          && data.orderDate == request.time; // 注文日時はサーバーの時刻を強制
+    }
+
+    // --- コレクションごとのルール ---
+
     // 注文(orders)コレクション
     match /orders/{orderId} {
-      // App Checkで検証されたアプリからのみ作成できる
-      allow create: if true;
+      // App Checkで検証済み、かつ、データ内容が正しい場合のみ作成を許可
+      allow create: if request.app != null && isOrderDataValid(request.resource.data);
+
       // ログインしている管理者のみが読み取り、更新、削除できる
       allow read, update, delete: if request.auth != null;
     }
 
     // 商品(products)コレクション
     match /products/{productId} {
-      allow read, write: if request.auth != null;
+      // ★重要: App Checkで検証されたアプリからのみ読み取り可能（Cloud Functions経由）
+      // "allow read: if true;" にするとセキュリティが低下するため、採用しません。
+      allow read: if request.app != null || request.auth != null;
+      allow write: if request.auth != null;
     }
 
     // 提供スタイル(servingStyles)コレクション
     match /servingStyles/{styleId} {
-        allow read, write: if request.auth != null;
+        allow read: if request.app != null || request.auth != null;
+        allow write: if request.auth != null;
     }
 
     // 支払い方法(paymentMethods)コレクション
     match /paymentMethods/{methodId} {
-        allow read, write: if request.auth != null;
+        allow read: if request.app != null || request.auth != null;
+        allow write: if request.auth != null;
     }
 
     // 各種設定(settings)コレクション
     match /settings/{settingId} {
-        allow read, write: if request.auth != null;
+        allow read: if request.app != null || request.auth != null;
+        allow write: if request.auth != null;
     }
 
     // 休業日(holidays)コレクション
     match /holidays/{holidayId} {
-        allow read, write: if request.auth != null;
+        allow read: if request.app != null || request.auth != null;
+        allow write: if request.auth != null;
     }
 
     // カウンター(counters)コレクション
