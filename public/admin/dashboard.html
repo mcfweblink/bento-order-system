@@ -5,20 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理ダッシュボード</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
-    <style>
-        /* コピー完了ツールチップ用のスタイル */
-        #copy-tooltip {
-            position: absolute;
-            padding: 4px 8px;
-            background-color: #2c3e50;
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 100;
-            pointer-events: none; /* マウスイベントを透過させる */
-        }
-    </style>
 </head>
 <body class="bg-gray-100">
     <div id="app-container" class="hidden">
@@ -30,7 +16,6 @@
         </header>
 
         <main class="container mx-auto p-4">
-            <!-- タブ切り替えメニュー -->
             <div class="mb-4 border-b border-gray-200">
                 <ul class="flex flex-wrap -mb-px font-medium text-center" id="tabs-container">
                     <li class="mr-2"><a href="#orders" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">受注管理</a></li>
@@ -40,29 +25,50 @@
                 </ul>
             </div>
 
-            <!-- タブコンテンツ -->
             <div id="tab-contents">
-                <!-- 受注管理タブ -->
                 <div id="orders" class="tab-content">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold">受注一覧</h2>
-                        <div class="flex items-center gap-4">
-                            <select id="csv-encoding-select" class="border rounded p-2 bg-white">
-                                <option value="utf8-bom">UTF-8 (BOM付き)</option>
-                                <option value="sjis">Shift_JIS (Excel用)</option>
-                            </select>
-                            <button id="csv-export-button" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">CSVエクスポート</button>
+                    <div class="mb-4 p-4 bg-white rounded-lg shadow">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                            <div>
+                                <label class="text-sm font-medium">期間</label>
+                                <div class="flex items-center">
+                                    <input type="date" id="filter-start-date" class="w-full p-2 border rounded">
+                                    <span class="mx-2">～</span>
+                                    <input type="date" id="filter-end-date" class="w-full p-2 border rounded">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="filter-status" class="text-sm font-medium">ステータス</label>
+                                <select id="filter-status" class="w-full p-2 border rounded bg-white">
+                                    <option value="all">すべて</option>
+                                    <option value="未対応" selected>未対応</option>
+                                    <option value="対応済">対応済</option>
+                                    <option value="キャンセル">キャンセル</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="filter-apply-button" class="bg-blue-500 text-white px-4 py-2 rounded-lg">絞り込み</button>
+                                <button id="filter-reset-button" class="bg-gray-500 text-white px-4 py-2 rounded-lg">リセット</button>
+                            </div>
+                            <div class="md:col-span-2 text-right">
+                                <select id="csv-encoding-select" class="border rounded p-2 bg-white">
+                                    <option value="utf8-bom">UTF-8 (BOM付き)</option>
+                                    <option value="sjis">Shift_JIS (Excel用)</option>
+                                </select>
+                                <button id="csv-export-button" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">CSVエクスポート</button>
+                            </div>
                         </div>
                     </div>
+
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm text-left text-gray-500">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3">注文番号</th>
-                                        <th scope="col" class="px-6 py-3">注文日時</th>
-                                        <th scope="col" class="px-6 py-3">お客様名</th>
-                                        <th scope="col" class="px-6 py-3">合計金額</th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderNumber">注文番号 <span></span></th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderDate">注文日時 <span></span></th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="customerName">お客様名 <span></span></th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="totalPrice">合計金額 <span></span></th>
                                         <th scope="col" class="px-6 py-3">ステータス</th>
                                         <th scope="col" class="px-6 py-3">操作</th>
                                     </tr>
@@ -75,7 +81,6 @@
                     </div>
                 </div>
 
-                <!-- 商品管理タブ -->
                 <div id="products" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">商品管理</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md">
@@ -119,7 +124,6 @@
                     </div>
                 </div>
 
-                <!-- オプション設定タブ -->
                 <div id="settings" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">オプション設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
@@ -142,7 +146,6 @@
                     </div>
                 </div>
 
-                <!-- メール設定タブ -->
                 <div id="email-settings" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">メール設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">

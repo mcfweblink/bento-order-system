@@ -1,25 +1,17 @@
-// Firebaseの基本機能とFirestore、Functionsをインポート
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-// App Checkの機能を追加でインポート
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
-// 設定ファイルからFirebase接続情報とサイトキーをインポート
 import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
 // Firebaseの初期化
 const app = initializeApp(firebaseConfig);
-
-// ★変更点: App Checkの初期化を、他のサービスより先に行う
-// --- App Checkの初期化 ---
 const appCheck = initializeAppCheck(app, {
   provider: new ReCaptchaV3Provider(recaptchaSiteKey),
   isTokenAutoRefreshEnabled: true
 });
-
-// App Checkの準備ができてから、他のサービスを準備する
 const db = getFirestore(app);
-const functions = getFunctions(app, 'asia-northeast1'); // Functionsのリージョンを指定
+const functions = getFunctions(app, 'asia-northeast1');
 
 // --- DOM要素の取得 ---
 const productList = document.getElementById('product-list');
@@ -28,13 +20,14 @@ const totalPriceSpan = document.getElementById('total-price');
 const submitOrderButton = document.getElementById('submit-order-button');
 const formErrorMessage = document.getElementById('form-error-message');
 const successModal = document.getElementById('success-modal');
+const orderForm = document.getElementById('bento-order-form');
 const servingStyleOptionsDiv = document.getElementById('serving-style-options');
 const paymentMethodSelect = document.getElementById('payment-method');
 const deliveryDateInput = document.getElementById('delivery-date');
 const deliveryAreaText = document.getElementById('delivery-area-text');
 const deliveryDateRuleText = document.getElementById('delivery-date-rule');
 
-let products = []; // 商品データを保持する配列
+let products = [];
 
 // --- バックエンドから公開データを取得してページを構築 ---
 async function loadPublicData() {
@@ -43,7 +36,6 @@ async function loadPublicData() {
         const result = await getPublicData();
         const data = result.data;
 
-        // 商品情報を表示
         products = data.products || [];
         productList.innerHTML = '';
         products.forEach(product => {
@@ -67,7 +59,6 @@ async function loadPublicData() {
             input.addEventListener('change', updateOrderSummary);
         });
 
-        // 提供スタイルを表示
         servingStyleOptionsDiv.innerHTML = '';
         (data.servingStyles || []).forEach(style => {
             servingStyleOptionsDiv.innerHTML += `
@@ -78,13 +69,11 @@ async function loadPublicData() {
             `;
         });
 
-        // 支払い方法を表示
         paymentMethodSelect.innerHTML = '';
         (data.paymentMethods || []).forEach(method => {
             paymentMethodSelect.innerHTML += `<option value="${method.name}">${method.name}</option>`;
         });
 
-        // 店舗情報を表示
         deliveryAreaText.textContent = (data.storeInfo || {}).deliveryAreaText || '配達エリア情報は店舗にご確認ください。';
 
     } catch (error) {
@@ -93,7 +82,7 @@ async function loadPublicData() {
     }
 }
 
-// --- 注文概要の更新、配送日ルール、注文保存のロジック ---
+// --- 注文概要と合計金額を更新 ---
 function updateOrderSummary() {
     let total = 0;
     orderItemsDiv.innerHTML = '';
@@ -118,6 +107,7 @@ function updateOrderSummary() {
     totalPriceSpan.textContent = total;
 }
 
+// --- 配送日のルール設定 ---
 function setDeliveryDateRule() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -135,18 +125,40 @@ function setDeliveryDateRule() {
     deliveryDateInput.min = `${year}-${month}-${day}`;
 }
 
-submitOrderButton.addEventListener('click', async () => {
+// --- バリデーション関数 ---
+function validateForm(data) {
+    const errors = [];
+    if (!data.customerName || !data.customerAddress || !data.customerPhone || !data.customerEmail || !data.deliveryDate || data.items.length === 0) {
+        errors.push('お名前、ご住所、電話番号、メールアドレス、配送希望日は必須です。また、商品は1つ以上選択してください。');
+    }
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+    if (data.customerEmail && !emailRegex.test(data.customerEmail)) {
+        errors.push('有効なメールアドレスの形式ではありません。');
+    }
+    const phoneRaw = (data.customerPhone || '').replace(/-/g, "");
+    const phoneRegex = /^(0[5789]0\d{8}|0\d{1,4}\d{1,4}\d{4})$/;
+    if (data.customerPhone && !phoneRegex.test(phoneRaw)) {
+         errors.push('有効な日本の電話番号（市外局番、携帯番号）を入力してください。');
+    }
+    return errors;
+}
+
+// --- 注文をFirestoreに保存 ---
+orderForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
     formErrorMessage.textContent = '';
     submitOrderButton.disabled = true;
     submitOrderButton.textContent = '送信中...';
+
     const customerName = document.getElementById('customer-name').value;
     const customerAddress = document.getElementById('customer-address').value;
     const customerPhone = document.getElementById('customer-phone').value;
     const customerEmail = document.getElementById('customer-email').value;
-    const deliveryDate = deliveryDateInput.value;
+    const deliveryDate = document.getElementById('delivery-date').value;
     const mealType = document.getElementById('meal-type').value;
-    const paymentMethod = paymentMethodSelect.value;
+    const paymentMethod = document.getElementById('payment-method').value;
     const remarks = document.getElementById('remarks').value;
+
     const orderedItems = [];
     let totalPrice = 0;
     document.querySelectorAll('input[type="number"]').forEach(input => {
@@ -158,16 +170,21 @@ submitOrderButton.addEventListener('click', async () => {
             totalPrice += product.price * quantity;
         }
     });
+
     const selectedServingStyles = [];
     document.querySelectorAll('input[name="serving-style"]:checked').forEach(checkbox => {
         selectedServingStyles.push(checkbox.value);
     });
-    if (!customerName || !customerAddress || !customerPhone || !customerEmail || !deliveryDate || orderedItems.length === 0) {
-        formErrorMessage.textContent = 'お名前、ご住所、電話番号、メールアドレス、配送希望日は必須です。また、商品は1つ以上選択してください。';
+
+    const orderDataForValidation = { customerName, customerAddress, customerPhone, customerEmail, deliveryDate, items: orderedItems };
+    const validationErrors = validateForm(orderDataForValidation);
+    if (validationErrors.length > 0) {
+        formErrorMessage.innerHTML = validationErrors.join('<br>');
         submitOrderButton.disabled = false;
         submitOrderButton.textContent = 'この内容で注文する';
         return;
     }
+
     const orderData = {
         customerName, customerAddress, customerPhone, customerEmail,
         deliveryDate, mealType, paymentMethod, remarks,
@@ -177,6 +194,7 @@ submitOrderButton.addEventListener('click', async () => {
         orderDate: serverTimestamp(),
         status: '未対応'
     };
+
     try {
         await addDoc(collection(db, "orders"), orderData);
         successModal.style.display = 'flex';

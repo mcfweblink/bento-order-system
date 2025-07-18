@@ -1,8 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
 
@@ -15,7 +14,6 @@ const appCheck = initializeAppCheck(app, {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const functions = getFunctions(app, 'asia-northeast1');
 
 // --- 認証状態の監視 ---
 onAuthStateChanged(auth, (user) => {
@@ -55,9 +53,19 @@ function initDashboard() {
     document.getElementById('product-image').addEventListener('change', previewImage);
 
     // 受注管理
-    loadOrders();
+    document.getElementById('filter-apply-button').addEventListener('click', loadOrders);
+    document.getElementById('filter-reset-button').addEventListener('click', () => {
+        document.getElementById('filter-status').value = '未対応';
+        document.getElementById('filter-start-date').value = '';
+        document.getElementById('filter-end-date').value = '';
+        loadOrders();
+    });
+    document.querySelectorAll('.sortable-header').forEach(header => {
+        header.addEventListener('click', () => handleSort(header));
+    });
     document.getElementById('csv-export-button').addEventListener('click', exportOrdersToCSV);
     document.getElementById('close-modal-button').addEventListener('click', () => document.getElementById('order-details-modal').classList.add('hidden'));
+    loadOrders(); // 初回読み込み
 
     // オプション設定
     loadAndRenderOptions('servingStyles', 'serving-styles-list');
@@ -76,61 +84,6 @@ function initDashboard() {
 // --- ログアウト処理 ---
 function onLogout() {
     signOut(auth).catch(error => console.error('ログアウトエラー', error));
-}
-
-// --- クリップボードコピー機能 ---
-function copyToClipboard(text) {
-    const textarea = document.createElement('textarea');
-    textarea.textContent = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-}
-
-// --- コピーツールチップ表示機能 ---
-function showCopyTooltip(event) {
-    const tooltip = document.getElementById('copy-tooltip');
-    tooltip.style.left = `${event.pageX + 10}px`;
-    tooltip.style.top = `${event.pageY - 10}px`;
-    tooltip.classList.remove('hidden');
-    setTimeout(() => {
-        tooltip.classList.add('hidden');
-    }, 1000);
-}
-
-// --- プレースホルダー一覧を動的に生成する機能 ---
-function renderPlaceholders() {
-    const placeholderList = document.getElementById('placeholders-list');
-    const placeholders = [
-        { key: '{customerName}', desc: 'お客様のお名前' },
-        { key: '{orderNumber}', desc: '注文番号' },
-        { key: '{totalPrice}', desc: '合計金額' },
-        { key: '{orderDate}', desc: '注文日時' },
-        { key: '{deliveryDate}', desc: '配送希望日' },
-        { key: '{customerAddress}', desc: 'お客様の住所' },
-        { key: '{customerPhone}', desc: 'お客様の電話番号' },
-        { key: '{itemsList}', desc: '注文商品の一覧' },
-        { key: '{dashboardUrl}', desc: '管理者向け注文詳細URL' },
-        { key: '{mealType}', desc: '食事タイミング' },
-        { key: '{servingStyles}', desc: '提供スタイル' },
-        { key: '{paymentMethod}', desc: '支払い方法' },
-        { key: '{remarks}', desc: '備考欄' },
-    ];
-
-    placeholderList.innerHTML = '';
-    placeholders.forEach(p => {
-        const div = document.createElement('div');
-        div.innerHTML = `
-            <code class="placeholder-copy bg-gray-200 p-1 rounded cursor-pointer hover:bg-gray-300">${p.key}</code>
-            <span class="ml-2 text-gray-600">- ${p.desc}</span>
-        `;
-        div.querySelector('.placeholder-copy').addEventListener('click', (e) => {
-            copyToClipboard(p.key);
-            showCopyTooltip(e);
-        });
-        placeholderList.appendChild(div);
-    });
 }
 
 // --- 商品管理機能 ---
@@ -253,23 +206,42 @@ async function deleteProduct(product) {
 
 // --- 受注管理機能 ---
 const ordersTableBody = document.getElementById('orders-table-body');
-let allOrders = [];
+let currentSort = { key: 'orderDate', direction: 'desc' };
+let displayedOrders = [];
 
-function loadOrders() {
-    const q = query(collection(db, "orders"), orderBy("orderDate", "desc"));
+async function loadOrders() {
+    const status = document.getElementById('filter-status').value;
+    const startDate = document.getElementById('filter-start-date').value;
+    const endDate = document.getElementById('filter-end-date').value;
+
+    let constraints = [];
+    if (status !== 'all') {
+        constraints.push(where("status", "==", status));
+    }
+    if (startDate) {
+        constraints.push(where("orderDate", ">=", Timestamp.fromDate(new Date(startDate))));
+    }
+    if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        constraints.push(where("orderDate", "<=", Timestamp.fromDate(endOfDay)));
+    }
+
+    constraints.push(orderBy(currentSort.key, currentSort.direction));
+
+    const q = query(collection(db, "orders"), ...constraints);
+
     onSnapshot(q, (snapshot) => {
         ordersTableBody.innerHTML = '';
-        allOrders = [];
+        displayedOrders = [];
         snapshot.forEach(doc => {
             const order = { id: doc.id, ...doc.data() };
-            allOrders.push(order);
+            displayedOrders.push(order);
             const tr = document.createElement('tr');
-
             let statusBgClass = 'bg-white';
             if (order.status === '対応済') statusBgClass = 'bg-blue-50';
             else if (order.status === 'キャンセル') statusBgClass = 'bg-red-50';
             tr.className = `${statusBgClass} border-b`;
-
             tr.innerHTML = `
                 <td class="px-6 py-4">${order.orderNumber || 'N/A'}</td>
                 <td class="px-6 py-4">${new Date(order.orderDate.seconds * 1000).toLocaleString()}</td>
@@ -284,19 +256,36 @@ function loadOrders() {
                 </td>
                 <td class="px-6 py-4">
                     <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
-                    <button class="send-complete-email-btn bg-green-500 text-white px-2 py-1 rounded text-xs ml-2 disabled:bg-gray-400 disabled:cursor-not-allowed" 
-                            data-id="${order.id}" 
-                            ${order.status !== '対応済' || order.completionEmailSent ? 'disabled' : ''}>
-                        ${order.completionEmailSent ? '送信済' : '完了メール'}
-                    </button>
                 </td>
             `;
             tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
             tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
-            tr.querySelector('.send-complete-email-btn').addEventListener('click', (e) => handleSendCompletionEmail(e.target));
             ordersTableBody.appendChild(tr);
         });
+        updateSortHeaders();
+    }, (error) => {
+        console.error("注文の読み込みエラー:", error);
+        ordersTableBody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-red-500">注文の読み込みに失敗しました。インデックスが作成されているか確認してください。</td></tr>`;
     });
+}
+
+function handleSort(header) {
+    const sortKey = header.dataset.sortKey;
+    if (currentSort.key === sortKey) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSort.key = sortKey;
+        currentSort.direction = 'desc';
+    }
+    loadOrders();
+}
+
+function updateSortHeaders() {
+    document.querySelectorAll('.sortable-header span').forEach(span => span.textContent = '');
+    const activeHeader = document.querySelector(`.sortable-header[data-sort-key="${currentSort.key}"]`);
+    if (activeHeader) {
+        activeHeader.querySelector('span').textContent = currentSort.direction === 'asc' ? ' ▲' : ' ▼';
+    }
 }
 
 async function updateOrderStatus(id, status) {
@@ -333,9 +322,9 @@ function showOrderDetails(order) {
 function exportOrdersToCSV() {
     const encoding = document.getElementById('csv-encoding-select').value;
     let csvContent = "";
-    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "合計金額", "ステータス", "注文内容", "備考", "食事タイミング", "提供スタイル", "支払い方法"];
+    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "合計金額", "ステータス", "注文内容", "食事タイミング", "提供スタイル", "支払い方法", "備考"];
     csvContent += headers.join(",") + "\r\n";
-    allOrders.forEach(order => {
+    displayedOrders.forEach(order => {
         const orderDate = new Date(order.orderDate.seconds * 1000).toLocaleString();
         const items = order.items.map(i => `${i.name}(${i.quantity})`).join(' | ');
         const servingStyles = (order.servingStyles || []).join(' | ');
@@ -373,25 +362,6 @@ function exportOrdersToCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-}
-
-async function handleSendCompletionEmail(button) {
-    const orderId = button.dataset.id;
-    if (!orderId) return;
-
-    button.disabled = true;
-    button.textContent = '送信中...';
-
-    try {
-        const sendEmail = httpsCallable(functions, 'sendCompletionEmail');
-        await sendEmail({ orderId });
-        alert('受付完了メールを送信しました。');
-    } catch (error) {
-        console.error("メール送信エラー:", error);
-        alert(`メールの送信に失敗しました: ${error.message}`);
-        button.disabled = false;
-        button.textContent = '完了メール';
-    }
 }
 
 // --- 各種設定機能 ---
