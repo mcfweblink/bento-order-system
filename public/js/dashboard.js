@@ -81,6 +81,10 @@ function initDashboard() {
     loadEmailSettings();
     document.getElementById('save-email-settings-button').addEventListener('click', saveEmailSettings);
 
+    // ★追加: 店舗設定
+    loadStoreSettings();
+    document.getElementById('save-store-settings-button').addEventListener('click', saveStoreSettings);
+
     // プレースホルダーの表示とコピー機能
     renderPlaceholders();
 }
@@ -315,16 +319,10 @@ async function loadOrders() {
                 </td>
                 <td class="px-6 py-4">
                     <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
-                    <button class="send-complete-email-btn bg-green-500 text-white px-2 py-1 rounded text-xs ml-2 disabled:bg-gray-400 disabled:cursor-not-allowed" 
-                            data-id="${order.id}" 
-                            ${order.status !== '対応済' || order.completionEmailSent ? 'disabled' : ''}>
-                        ${order.completionEmailSent ? '送信済' : '完了メール'}
-                    </button>
                 </td>
             `;
             tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
             tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
-            tr.querySelector('.send-complete-email-btn').addEventListener('click', (e) => handleSendCompletionEmail(e.target));
             ordersTableBody.appendChild(tr);
         });
         updateSortHeaders();
@@ -433,25 +431,6 @@ function exportOrdersToCSV() {
     document.body.removeChild(link);
 }
 
-async function handleSendCompletionEmail(button) {
-    const orderId = button.dataset.id;
-    if (!orderId) return;
-
-    button.disabled = true;
-    button.textContent = '送信中...';
-
-    try {
-        const sendEmail = httpsCallable(functions, 'sendCompletionEmail');
-        await sendEmail({ orderId });
-        alert('受付完了メールを送信しました。');
-    } catch (error) {
-        console.error("メール送信エラー:", error);
-        alert(`メールの送信に失敗しました: ${error.message}`);
-        button.disabled = false;
-        button.textContent = '完了メール';
-    }
-}
-
 // --- 各種設定機能 ---
 async function loadAndRenderOptions(collectionName, listElementId) {
     const listElement = document.getElementById(listElementId);
@@ -513,4 +492,21 @@ async function saveEmailSettings() {
     };
     await setDoc(doc(db, "settings", "emailTemplates"), data, { merge: true });
     alert('メール設定を保存しました。');
+}
+
+// ★追加: 店舗設定の読み込みと保存
+async function loadStoreSettings() {
+    const docRef = doc(db, "settings", "storeInfo");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        document.getElementById('delivery-area-text-input').value = data.deliveryAreaText || '';
+    }
+}
+
+async function saveStoreSettings() {
+    const deliveryAreaText = document.getElementById('delivery-area-text-input').value;
+    const docRef = doc(db, "settings", "storeInfo");
+    await setDoc(docRef, { deliveryAreaText }, { merge: true });
+    alert('店舗設定を保存しました。');
 }

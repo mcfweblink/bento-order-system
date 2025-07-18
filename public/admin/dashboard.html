@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
     <style>
-        /* コピー完了ツールチップ用のスタイル */
         #copy-tooltip {
             position: absolute;
             padding: 4px 8px;
@@ -16,7 +15,7 @@
             border-radius: 4px;
             font-size: 12px;
             z-index: 100;
-            pointer-events: none; /* マウスイベントを透過させる */
+            pointer-events: none;
         }
         .sortable-header span {
             opacity: 0.5;
@@ -41,8 +40,10 @@
                 <ul class="flex flex-wrap -mb-px font-medium text-center" id="tabs-container">
                     <li class="mr-2"><a href="#orders" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">受注管理</a></li>
                     <li class="mr-2"><a href="#products" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">商品管理</a></li>
-                    <li class="mr-2"><a href="#settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">オプション設定</a></li>
+                    <li class="mr-2"><a href="#options" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">オプション設定</a></li>
                     <li class="mr-2"><a href="#email-settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">メール設定</a></li>
+                    <!-- ★追加: 店舗設定タブ -->
+                    <li class="mr-2"><a href="#store-settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">店舗設定</a></li>
                 </ul>
             </div>
 
@@ -74,7 +75,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="bg-white p-6 rounded-lg shadow-md">
                          <div class="flex justify-end items-center mb-4">
                             <select id="csv-encoding-select" class="border rounded p-2 bg-white">
@@ -103,6 +103,7 @@
                     </div>
                 </div>
 
+                <!-- 商品管理タブ -->
                 <div id="products" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">商品管理</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md">
@@ -146,7 +147,8 @@
                     </div>
                 </div>
 
-                <div id="settings" class="tab-content hidden">
+                <!-- オプション設定タブ -->
+                <div id="options" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">オプション設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
                         <div>
@@ -168,6 +170,7 @@
                     </div>
                 </div>
 
+                <!-- メール設定タブ -->
                 <div id="email-settings" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">メール設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
@@ -232,6 +235,23 @@
                             <p class="text-sm text-gray-600">メール本文内に以下の変数を記述すると、実際の注文情報に自動で置き換えられます。</p>
                             <div id="placeholders-list" class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                                 <!-- プレースホルダーがJSでここに生成されます -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ★追加: 店舗設定タブ -->
+                <div id="store-settings" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">店舗設定</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
+                        <div class="border p-4 rounded-md">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">配達エリア案内文</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="delivery-area-text-input" class="block mb-1 font-medium">お客様向けページに表示するテキスト</label>
+                                    <textarea id="delivery-area-text-input" rows="4" class="w-full p-2 border rounded font-mono text-sm"></textarea>
+                                </div>
+                                <button id="save-store-settings-button" class="bg-blue-500 text-white px-8 py-2 rounded-lg hover:bg-blue-600">店舗設定を保存</button>
                             </div>
                         </div>
                     </div>
