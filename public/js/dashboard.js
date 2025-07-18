@@ -53,7 +53,9 @@ function initDashboard() {
     document.getElementById('product-image').addEventListener('change', previewImage);
 
     // 受注管理
-    document.getElementById('filter-apply-button').addEventListener('click', loadOrders);
+    document.getElementById('filter-status').addEventListener('change', loadOrders);
+    document.getElementById('filter-start-date').addEventListener('change', loadOrders);
+    document.getElementById('filter-end-date').addEventListener('change', loadOrders);
     document.getElementById('filter-reset-button').addEventListener('click', () => {
         document.getElementById('filter-status').value = '未対応';
         document.getElementById('filter-start-date').value = '';
@@ -84,6 +86,61 @@ function initDashboard() {
 // --- ログアウト処理 ---
 function onLogout() {
     signOut(auth).catch(error => console.error('ログアウトエラー', error));
+}
+
+// --- クリップボードコピー機能 ---
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.textContent = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+// --- コピーツールチップ表示機能 ---
+function showCopyTooltip(event) {
+    const tooltip = document.getElementById('copy-tooltip');
+    tooltip.style.left = `${event.pageX + 10}px`;
+    tooltip.style.top = `${event.pageY - 10}px`;
+    tooltip.classList.remove('hidden');
+    setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 1000);
+}
+
+// --- プレースホルダー一覧を動的に生成する機能 ---
+function renderPlaceholders() {
+    const placeholderList = document.getElementById('placeholders-list');
+    const placeholders = [
+        { key: '{customerName}', desc: 'お客様のお名前' },
+        { key: '{orderNumber}', desc: '注文番号' },
+        { key: '{totalPrice}', desc: '合計金額' },
+        { key: '{orderDate}', desc: '注文日時' },
+        { key: '{deliveryDate}', desc: '配送希望日' },
+        { key: '{customerAddress}', desc: 'お客様の住所' },
+        { key: '{customerPhone}', desc: 'お客様の電話番号' },
+        { key: '{itemsList}', desc: '注文商品の一覧' },
+        { key: '{dashboardUrl}', desc: '管理者向け注文詳細URL' },
+        { key: '{mealType}', desc: '食事タイミング' },
+        { key: '{servingStyles}', desc: '提供スタイル' },
+        { key: '{paymentMethod}', desc: '支払い方法' },
+        { key: '{remarks}', desc: '備考欄' },
+    ];
+
+    placeholderList.innerHTML = '';
+    placeholders.forEach(p => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <code class="placeholder-copy bg-gray-200 p-1 rounded cursor-pointer hover:bg-gray-300">${p.key}</code>
+            <span class="ml-2 text-gray-600">- ${p.desc}</span>
+        `;
+        div.querySelector('.placeholder-copy').addEventListener('click', (e) => {
+            copyToClipboard(p.key);
+            showCopyTooltip(e);
+        });
+        placeholderList.appendChild(div);
+    });
 }
 
 // --- 商品管理機能 ---
@@ -281,9 +338,13 @@ function handleSort(header) {
 }
 
 function updateSortHeaders() {
-    document.querySelectorAll('.sortable-header span').forEach(span => span.textContent = '');
+    document.querySelectorAll('.sortable-header').forEach(header => {
+        header.classList.remove('active');
+        header.querySelector('span').textContent = '';
+    });
     const activeHeader = document.querySelector(`.sortable-header[data-sort-key="${currentSort.key}"]`);
     if (activeHeader) {
+        activeHeader.classList.add('active');
         activeHeader.querySelector('span').textContent = currentSort.direction === 'asc' ? ' ▲' : ' ▼';
     }
 }
