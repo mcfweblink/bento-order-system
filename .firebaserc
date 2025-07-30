@@ -1,5 +1,20 @@
 {
   "projects": {
-    "default": "bento-order-system-prod"
-  }
+    "default": "bento-order-system-prod",
+    "staging": "bento-order-system-staging",
+    "production": "bento-order-system-prod"
+  },
+  "targets": {
+    "bento-order-system-staging": {
+      "hosting": {
+        "production": [
+          "bento-order-system-prod"
+        ],
+        "staging": [
+          "bento-order-system-staging"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
