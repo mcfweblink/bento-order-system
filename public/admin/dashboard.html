@@ -23,6 +23,11 @@
         .sortable-header.active span {
             opacity: 1;
         }
+        /* モーダルのスクロールバー用 */
+        .modal-body {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -42,7 +47,6 @@
                     <li class="mr-2"><a href="#products" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">商品管理</a></li>
                     <li class="mr-2"><a href="#options" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">オプション設定</a></li>
                     <li class="mr-2"><a href="#email-settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">メール設定</a></li>
-                    <!-- ★追加: 店舗設定タブ -->
                     <li class="mr-2"><a href="#store-settings" class="tab-link inline-block p-4 border-b-2 rounded-t-lg">店舗設定</a></li>
                 </ul>
             </div>
@@ -51,6 +55,11 @@
             <div id="tab-contents">
                 <!-- 受注管理タブ -->
                 <div id="orders" class="tab-content">
+                    <!-- ★変更点: 新規注文作成ボタンを追加 -->
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">受注一覧</h2>
+                        <button id="create-new-order-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">新規注文作成</button>
+                    </div>
                     <div class="mb-4 p-4 bg-white rounded-lg shadow">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                             <div class="lg:col-span-2">
@@ -90,7 +99,6 @@
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderNumber">注文番号 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderDate">注文日時 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="customerName">お客様名 <span></span></th>
-                                        <!-- ★変更点: 介護保険列を追加 -->
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="isCareUser">介護保険 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="totalPrice">合計金額 <span></span></th>
                                         <th scope="col" class="px-6 py-3">ステータス</th>
@@ -105,7 +113,7 @@
                     </div>
                 </div>
 
-                <!-- 商品管理タブ -->
+                <!-- 商品管理タブ (変更なし) -->
                 <div id="products" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">商品管理</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md">
@@ -121,13 +129,11 @@
                                 <label for="product-description" class="block mb-1">商品説明</label>
                                 <textarea id="product-description" rows="3" class="w-full p-2 border rounded"></textarea>
                             </div>
-                            <!-- ★変更点: 価格入力欄を横並びに -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label for="product-price" class="block mb-1">通常価格（円）</label>
                                     <input type="number" id="product-price" class="w-full p-2 border rounded" required>
                                 </div>
-                                <!-- ★変更点: 割引価格の入力欄を追加 -->
                                 <div>
                                     <label for="product-discount-price" class="block mb-1">割引価格（円）</label>
                                     <input type="number" id="product-discount-price" class="w-full p-2 border rounded" required>
@@ -157,7 +163,7 @@
                     </div>
                 </div>
 
-                <!-- オプション設定タブ -->
+                <!-- 他のタブ (変更なし) -->
                 <div id="options" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">オプション設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
@@ -179,8 +185,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- メール設定タブ -->
                 <div id="email-settings" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">メール設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
@@ -249,8 +253,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- ★追加: 店舗設定タブ -->
                 <div id="store-settings" class="tab-content hidden">
                     <h2 class="text-2xl font-bold mb-4">店舗設定</h2>
                     <div class="bg-white p-6 rounded-lg shadow-md space-y-8">
@@ -270,6 +272,7 @@
         </main>
     </div>
 
+    <!-- 注文詳細モーダル (既存) -->
     <div id="order-details-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
@@ -281,6 +284,106 @@
             </div>
         </div>
     </div>
+
+    <!-- ★★★★★ ここからが新規追加 ★★★★★ -->
+    <!-- 注文 新規作成・編集モーダル -->
+    <div id="order-edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl">
+            <form id="order-edit-form">
+                <div class="p-6 border-b">
+                    <h2 id="order-edit-modal-title" class="text-2xl font-bold">新規注文作成</h2>
+                </div>
+                <div class="p-6 space-y-4 modal-body">
+                    <input type="hidden" id="edit-order-id">
+                    <input type="hidden" id="edit-order-date-original">
+                    
+                    <!-- お客様情報 -->
+                    <h3 class="text-lg font-semibold border-b pb-2">お客様情報</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="edit-customer-name" placeholder="お名前" class="w-full p-2 border rounded" required>
+                        <input type="text" id="edit-customer-address" placeholder="ご住所" class="w-full p-2 border rounded" required>
+                        <input type="tel" id="edit-customer-phone" placeholder="電話番号" class="w-full p-2 border rounded" required>
+                        <input type="email" id="edit-customer-email" placeholder="メールアドレス" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="edit-is-care-user" class="form-checkbox">
+                            <span class="ml-2">介護保険利用者</span>
+                        </label>
+                    </div>
+
+                    <!-- 注文日時・配送日 -->
+                    <h3 class="text-lg font-semibold border-b pb-2 mt-4">日時情報</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="edit-order-date" class="block text-sm font-medium">注文日時</label>
+                            <input type="datetime-local" id="edit-order-date" class="w-full p-2 border rounded" required>
+                        </div>
+                        <div>
+                            <label for="edit-delivery-date" class="block text-sm font-medium">配送希望日</label>
+                            <input type="date" id="edit-delivery-date" class="w-full p-2 border rounded" required>
+                        </div>
+                    </div>
+
+                    <!-- 注文内容 -->
+                    <h3 class="text-lg font-semibold border-b pb-2 mt-4">注文内容</h3>
+                    <div id="edit-order-items-container" class="space-y-2">
+                        <!-- 注文商品がここに動的に追加されます -->
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <button type="button" id="add-item-btn" class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">商品を追加</button>
+                        <div class="font-bold">
+                            合計: <span id="edit-total-price">0</span>円
+                        </div>
+                    </div>
+
+                    <!-- その他情報 -->
+                    <h3 class="text-lg font-semibold border-b pb-2 mt-4">その他</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="edit-meal-type" class="block text-sm font-medium">食事タイミング</label>
+                            <select id="edit-meal-type" class="w-full p-2 border rounded bg-white"></select>
+                        </div>
+                        <div>
+                            <label for="edit-payment-method" class="block text-sm font-medium">支払い方法</label>
+                            <select id="edit-payment-method" class="w-full p-2 border rounded bg-white"></select>
+                        </div>
+                        <div>
+                            <label for="edit-status" class="block text-sm font-medium">ステータス</label>
+                            <select id="edit-status" class="w-full p-2 border rounded bg-white"></select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="edit-serving-styles" class="block text-sm font-medium">提供スタイル</label>
+                        <div id="edit-serving-styles-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
+                            <!-- 提供スタイルがここに動的に追加されます -->
+                        </div>
+                    </div>
+                    <div>
+                        <label for="edit-remarks" class="block text-sm font-medium">備考</label>
+                        <textarea id="edit-remarks" rows="3" class="w-full p-2 border rounded"></textarea>
+                    </div>
+                </div>
+                <div class="p-4 bg-gray-50 flex justify-end gap-4">
+                    <button type="button" id="close-order-edit-modal-btn" class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500">キャンセル</button>
+                    <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 日時変更確認モーダル -->
+    <div id="date-confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+            <h3 class="text-lg font-bold mb-4">確認</h3>
+            <p class="mb-6">注文日時が変更されています。本当にこのまま保存しますか？</p>
+            <div class="flex justify-center gap-4">
+                <button id="date-confirm-cancel" class="bg-gray-300 px-6 py-2 rounded">いいえ</button>
+                <button id="date-confirm-ok" class="bg-red-500 text-white px-6 py-2 rounded">はい</button>
+            </div>
+        </div>
+    </div>
+    <!-- ★★★★★ ここまでが新規追加 ★★★★★ -->
 
     <div id="loading" class="min-h-screen flex items-center justify-center">
         <p>読み込み中...</p>

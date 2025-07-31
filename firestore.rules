@@ -13,7 +13,6 @@ service cloud.firestore {
           && data.deliveryDate is string && data.deliveryDate.size() == 10
           && data.items is list && data.items.size() > 0
           && data.totalPrice is number && data.totalPrice >= 0
-          // ★追加: isCareUserがboolean型であることを検証
           && data.isCareUser is bool
           && data.orderDate == request.time; // 注文日時はサーバーの時刻を強制
     }
@@ -22,7 +21,7 @@ service cloud.firestore {
     function isProductDataValid(data) {
         return data.name is string && data.name.size() > 0
             && data.price is number && data.price >= 0
-            && data.discountPrice is number && data.discountPrice >= 0 // 割引価格も数値かチェック
+            && data.discountPrice is number && data.discountPrice >= 0
             && data.isVisible is bool;
     }
 
@@ -30,8 +29,9 @@ service cloud.firestore {
 
     // 注文(orders)コレクション
     match /orders/{orderId} {
-      // App Checkで検証済み、かつ、データ内容が正しい場合のみ作成を許可
-      allow create: if request.app != null && isOrderDataValid(request.resource.data);
+      // ★変更点: 管理者による作成 (request.auth != null) を許可する
+      allow create: if (request.app != null && isOrderDataValid(request.resource.data)) 
+                      || (request.auth != null);
 
       // ログインしている管理者のみが読み取り、更新、削除できる
       allow read, update, delete: if request.auth != null;
