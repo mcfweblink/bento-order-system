@@ -1,10 +1,8 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+// 変更点: 完成品の「auth」ツールを、新しい設定ファイルから直接受け取る
+import { auth } from "./firebase-init.js";
 
-// Firebaseの初期化
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// 変更点: ここで初期化を行う必要がなくなったため、関連コードを削除
 
 const loginButton = document.getElementById('login-button');
 const emailInput = document.getElementById('email');
@@ -29,7 +27,6 @@ loginButton.addEventListener('click', () => {
 });
 
 // --- すでにログイン済みかチェック ---
-// ログインページを開いた時点で、もしすでにログイン済みだったらダッシュボードに飛ばす
 onAuthStateChanged(auth, (user) => {
     if (user) {
         window.location.href = './dashboard.html';

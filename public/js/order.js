@@ -1,19 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
-import { firebaseConfig, recaptchaSiteKey } from "./firebase-config.js";
+import { db, functions } from './firebase-init.js';
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
-// Firebaseの初期化
-const app = initializeApp(firebaseConfig);
-const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-  isTokenAutoRefreshEnabled: true
-});
-const db = getFirestore(app);
-const functions = getFunctions(app, 'asia-northeast1');
-
-// --- DOM要素の取得 ---
 const productList = document.getElementById('product-list');
 const orderItemsDiv = document.getElementById('order-items');
 const totalPriceSpan = document.getElementById('total-price');
@@ -29,7 +17,6 @@ const deliveryDateRuleText = document.getElementById('delivery-date-rule');
 
 let products = [];
 
-// --- バックエンドから公開データを取得してページを構築 ---
 async function loadPublicData() {
     try {
         const getPublicData = httpsCallable(functions, 'getPublicData');
@@ -82,7 +69,6 @@ async function loadPublicData() {
     }
 }
 
-// --- 注文概要と合計金額を更新 ---
 function updateOrderSummary() {
     let total = 0;
     orderItemsDiv.innerHTML = '';
@@ -107,7 +93,6 @@ function updateOrderSummary() {
     totalPriceSpan.textContent = total;
 }
 
-// --- 配送日のルール設定 ---
 function setDeliveryDateRule() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -125,7 +110,6 @@ function setDeliveryDateRule() {
     deliveryDateInput.min = `${year}-${month}-${day}`;
 }
 
-// --- バリデーション関数 ---
 function validateForm(data) {
     const errors = [];
     if (!data.customerName || !data.customerAddress || !data.customerPhone || !data.customerEmail || !data.deliveryDate || data.items.length === 0) {
@@ -143,7 +127,6 @@ function validateForm(data) {
     return errors;
 }
 
-// --- 注文をFirestoreに保存 ---
 orderForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     formErrorMessage.textContent = '';
@@ -206,7 +189,6 @@ orderForm.addEventListener('submit', async (e) => {
     }
 });
 
-// --- 初期化処理 ---
 document.addEventListener('DOMContentLoaded', () => {
     loadPublicData();
     setDeliveryDateRule();

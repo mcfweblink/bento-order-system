@@ -1,5 +1,5 @@
 import { collection, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { db } from '../firebase-config.js';
+import { db } from '../firebase-init.js';
 import { copyToClipboard, showCopyTooltip } from './ui.js';
 
 /**

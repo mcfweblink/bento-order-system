@@ -1,6 +1,6 @@
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-import { db, functions } from '../firebase-config.js';
+import { db, functions } from '../firebase-init.js';
 
 const ordersTableBody = document.getElementById('orders-table-body');
 let currentSort = { key: 'orderDate', direction: 'desc' };

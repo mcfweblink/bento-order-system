@@ -1,6 +1,6 @@
 import { collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { db, storage } from '../firebase-config.js';
+import { db, storage } from '../firebase-init.js';
 
 const productsListAdmin = document.getElementById('products-list-admin');
 const productForm = document.getElementById('product-form');
