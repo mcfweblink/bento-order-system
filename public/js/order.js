@@ -24,9 +24,8 @@ function renderProductList() {
     const isCareUser = isCareUserCheckbox.checked;
 
     products.forEach(product => {
-        // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
-        const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
-        const price = isCareUser ? effectiveDiscountPrice : product.price;
+        // ★変更点: フォールバック処理を削除し、シンプルに参照
+        const price = isCareUser ? product.discountPrice : product.price;
         const priceLabel = isCareUser ? '介護保険適用価格' : '通常価格';
         
         const productCard = `
@@ -100,9 +99,8 @@ function updateOrderSummary() {
             const productId = input.dataset.productId;
             const product = products.find(p => p.id === productId);
             if (product) {
-                // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
-                const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
-                const price = isCareUser ? effectiveDiscountPrice : product.price;
+                // ★変更点: フォールバック処理を削除し、シンプルに参照
+                const price = isCareUser ? product.discountPrice : product.price;
                 total += price * quantity;
                 const orderItem = document.createElement('p');
                 orderItem.textContent = `${product.name} x ${quantity}`;
@@ -174,9 +172,8 @@ orderForm.addEventListener('submit', async (e) => {
             const productId = input.dataset.productId;
             const product = products.find(p => p.id === productId);
             
-            // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
-            const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
-            const price = isCareUser ? effectiveDiscountPrice : product.price;
+            // ★変更点: フォールバック処理を削除し、シンプルに参照
+            const price = isCareUser ? product.discountPrice : product.price;
             orderedItems.push({ 
                 productId: product.id, 
                 name: product.name, 

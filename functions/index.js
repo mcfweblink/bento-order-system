@@ -161,7 +161,21 @@ exports.getPublicData = onCall({enforceAppCheck: true}, async (request) => {
       paymentMethodsPromise,
       storeInfoPromise,
     ]);
-    const products = productsSnapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+
+    // ★★★★★ ここからが変更点 ★★★★★
+    // Firestoreから取得した商品データに対して、データ整形（フォールバック処理）を行う
+    const products = productsSnapshot.docs.map((doc) => {
+        const productData = doc.data();
+        
+        // discountPriceフィールドが存在しない、または数値でない場合に、priceフィールドの値をコピーする
+        if (typeof productData.discountPrice !== 'number') {
+            productData.discountPrice = productData.price;
+        }
+        
+        return {id: doc.id, ...productData};
+    });
+    // ★★★★★ ここまでが変更点 ★★★★★
+
     const servingStyles = servingStylesSnapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
     const paymentMethods = paymentMethodsSnapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
     const storeInfo = storeInfoDoc.exists ? storeInfoDoc.data() : {};
