@@ -90,6 +90,8 @@
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderNumber">注文番号 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="orderDate">注文日時 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="customerName">お客様名 <span></span></th>
+                                        <!-- ★変更点: 介護保険列を追加 -->
+                                        <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="isCareUser">介護保険 <span></span></th>
                                         <th scope="col" class="px-6 py-3 cursor-pointer sortable-header" data-sort-key="totalPrice">合計金額 <span></span></th>
                                         <th scope="col" class="px-6 py-3">ステータス</th>
                                         <th scope="col" class="px-6 py-3">操作</th>
@@ -119,9 +121,17 @@
                                 <label for="product-description" class="block mb-1">商品説明</label>
                                 <textarea id="product-description" rows="3" class="w-full p-2 border rounded"></textarea>
                             </div>
-                            <div>
-                                <label for="product-price" class="block mb-1">価格（円）</label>
-                                <input type="number" id="product-price" class="w-full p-2 border rounded" required>
+                            <!-- ★変更点: 価格入力欄を横並びに -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="product-price" class="block mb-1">通常価格（円）</label>
+                                    <input type="number" id="product-price" class="w-full p-2 border rounded" required>
+                                </div>
+                                <!-- ★変更点: 割引価格の入力欄を追加 -->
+                                <div>
+                                    <label for="product-discount-price" class="block mb-1">割引価格（円）</label>
+                                    <input type="number" id="product-discount-price" class="w-full p-2 border rounded" required>
+                                </div>
                             </div>
                             <div>
                                 <label for="product-image" class="block mb-1">商品画像（変更する場合のみ選択）</label>

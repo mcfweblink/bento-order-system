@@ -1,5 +1,5 @@
 import { db, functions } from './firebase-init.js';
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
 const productList = document.getElementById('product-list');
@@ -14,8 +14,45 @@ const paymentMethodSelect = document.getElementById('payment-method');
 const deliveryDateInput = document.getElementById('delivery-date');
 const deliveryAreaText = document.getElementById('delivery-area-text');
 const deliveryDateRuleText = document.getElementById('delivery-date-rule');
+const isCareUserCheckbox = document.getElementById('is-care-user-checkbox');
 
 let products = [];
+
+// 商品リストを描画する関数
+function renderProductList() {
+    productList.innerHTML = '';
+    const isCareUser = isCareUserCheckbox.checked;
+
+    products.forEach(product => {
+        // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
+        const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
+        const price = isCareUser ? effectiveDiscountPrice : product.price;
+        const priceLabel = isCareUser ? '介護保険適用価格' : '通常価格';
+        
+        const productCard = `
+            <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+                <img src="${product.imageUrl || 'https://placehold.co/400x250/cccccc/FFFFFF?text=画像なし'}" alt="${product.name}" class="w-full h-48 object-cover">
+                <div class="p-4 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold">${product.name}</h3>
+                    <p class="text-gray-600 my-2 flex-grow">${product.description}</p>
+                    <p class="text-lg font-semibold text-green-600">
+                        <span class="text-sm font-normal text-gray-500">${priceLabel}</span> ${price}円
+                    </p>
+                    <div class="mt-4 flex items-center">
+                        <label class="mr-2">数量:</label>
+                        <input type="number" id="quantity-${product.id}" class="w-20 p-1 border rounded" value="0" min="0" data-product-id="${product.id}">
+                    </div>
+                </div>
+            </div>
+        `;
+        productList.innerHTML += productCard;
+    });
+
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('change', updateOrderSummary);
+    });
+}
+
 
 async function loadPublicData() {
     try {
@@ -24,27 +61,7 @@ async function loadPublicData() {
         const data = result.data;
 
         products = data.products || [];
-        productList.innerHTML = '';
-        products.forEach(product => {
-            const productCard = `
-                <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
-                    <img src="${product.imageUrl || 'https://placehold.co/400x250/cccccc/FFFFFF?text=画像なし'}" alt="${product.name}" class="w-full h-48 object-cover">
-                    <div class="p-4 flex flex-col flex-grow">
-                        <h3 class="text-xl font-bold">${product.name}</h3>
-                        <p class="text-gray-600 my-2 flex-grow">${product.description}</p>
-                        <p class="text-lg font-semibold text-green-600">${product.price}円</p>
-                        <div class="mt-4 flex items-center">
-                            <label class="mr-2">数量:</label>
-                            <input type="number" id="quantity-${product.id}" class="w-20 p-1 border rounded" value="0" min="0" data-product-id="${product.id}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            productList.innerHTML += productCard;
-        });
-        document.querySelectorAll('input[type="number"]').forEach(input => {
-            input.addEventListener('change', updateOrderSummary);
-        });
+        renderProductList(); 
 
         servingStyleOptionsDiv.innerHTML = '';
         (data.servingStyles || []).forEach(style => {
@@ -69,10 +86,13 @@ async function loadPublicData() {
     }
 }
 
+// 合計金額の計算ロジックを更新
 function updateOrderSummary() {
     let total = 0;
     orderItemsDiv.innerHTML = '';
     let hasItem = false;
+    const isCareUser = isCareUserCheckbox.checked;
+
     document.querySelectorAll('input[type="number"]').forEach(input => {
         const quantity = parseInt(input.value);
         if (quantity > 0) {
@@ -80,7 +100,10 @@ function updateOrderSummary() {
             const productId = input.dataset.productId;
             const product = products.find(p => p.id === productId);
             if (product) {
-                total += product.price * quantity;
+                // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
+                const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
+                const price = isCareUser ? effectiveDiscountPrice : product.price;
+                total += price * quantity;
                 const orderItem = document.createElement('p');
                 orderItem.textContent = `${product.name} x ${quantity}`;
                 orderItemsDiv.appendChild(orderItem);
@@ -141,6 +164,7 @@ orderForm.addEventListener('submit', async (e) => {
     const mealType = document.getElementById('meal-type').value;
     const paymentMethod = document.getElementById('payment-method').value;
     const remarks = document.getElementById('remarks').value;
+    const isCareUser = isCareUserCheckbox.checked;
 
     const orderedItems = [];
     let totalPrice = 0;
@@ -149,8 +173,17 @@ orderForm.addEventListener('submit', async (e) => {
         if (quantity > 0) {
             const productId = input.dataset.productId;
             const product = products.find(p => p.id === productId);
-            orderedItems.push({ productId: product.id, name: product.name, quantity: quantity, price: product.price });
-            totalPrice += product.price * quantity;
+            
+            // ★変更点: discountPriceが存在しない場合にpriceを代替使用する
+            const effectiveDiscountPrice = (typeof product.discountPrice === 'number') ? product.discountPrice : product.price;
+            const price = isCareUser ? effectiveDiscountPrice : product.price;
+            orderedItems.push({ 
+                productId: product.id, 
+                name: product.name, 
+                quantity: quantity, 
+                price: price 
+            });
+            totalPrice += price * quantity;
         }
     });
 
@@ -175,7 +208,8 @@ orderForm.addEventListener('submit', async (e) => {
         servingStyles: selectedServingStyles,
         totalPrice,
         orderDate: serverTimestamp(),
-        status: '未対応'
+        status: '未対応',
+        isCareUser: isCareUser 
     };
 
     try {
@@ -188,6 +222,12 @@ orderForm.addEventListener('submit', async (e) => {
         submitOrderButton.textContent = 'この内容で注文する';
     }
 });
+
+isCareUserCheckbox.addEventListener('change', () => {
+    renderProductList();
+    updateOrderSummary();
+});
+
 
 document.addEventListener('DOMContentLoaded', () => {
     loadPublicData();

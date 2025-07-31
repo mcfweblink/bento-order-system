@@ -38,8 +38,10 @@ async function loadProductsAdmin() {
             const product = { id: doc.id, ...doc.data() };
             const div = document.createElement('div');
             div.className = 'flex justify-between items-center p-2 border rounded';
+            // ★変更点: 割引価格が未定義の場合でも表示が崩れないようにする
+            const discountPriceText = (typeof product.discountPrice === 'number') ? `${product.discountPrice}円` : '未設定';
             div.innerHTML = `
-                <span>${product.name} (${product.price}円) - ${product.isVisible ? '表示中' : '非表示'}</span>
+                <span>${product.name} (通常:${product.price}円 / 割引:${discountPriceText}) - ${product.isVisible ? '表示中' : '非表示'}</span>
                 <div class="flex gap-2">
                     <button class="duplicate-product-btn bg-blue-500 text-white px-3 py-1 rounded text-sm">複製</button>
                     <button class="edit-product-btn bg-yellow-500 text-white px-3 py-1 rounded text-sm">編集</button>
@@ -60,17 +62,33 @@ async function handleProductSubmit(e) {
     const name = document.getElementById('product-name').value;
     const description = document.getElementById('product-description').value;
     const price = Number(document.getElementById('product-price').value);
+    const discountPrice = Number(document.getElementById('product-discount-price').value);
     const isVisible = document.getElementById('product-is-visible').checked;
     const imageFile = productImageInput.files[0];
 
+    // 割引価格のバリデーション
+    if (document.getElementById('product-discount-price').value === '') {
+        alert('割引価格は必須項目です。');
+        return;
+    }
+
+
     let imageUrl = productImageUrlHidden.value;
     if (imageFile) {
+        if (id && productImageUrlHidden.value) {
+            try {
+                const oldImageRef = ref(storage, productImageUrlHidden.value);
+                await deleteObject(oldImageRef);
+            } catch (error) {
+                console.error("古い画像の削除に失敗しました:", error);
+            }
+        }
         const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
         await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(storageRef);
     }
 
-    const data = { name, description, price, isVisible, imageUrl };
+    const data = { name, description, price, discountPrice, isVisible, imageUrl };
 
     if (id) {
         await updateDoc(doc(db, "products", id), data);
@@ -85,6 +103,8 @@ function editProduct(product) {
     document.getElementById('product-name').value = product.name;
     document.getElementById('product-description').value = product.description;
     document.getElementById('product-price').value = product.price;
+    // ★変更点: 割引価格が未定義の場合でもエラーにならないようにする
+    document.getElementById('product-discount-price').value = product.discountPrice ?? '';
     document.getElementById('product-is-visible').checked = product.isVisible;
     productImageUrlHidden.value = product.imageUrl || '';
     if (product.imageUrl) {
@@ -100,6 +120,7 @@ function editProduct(product) {
 function resetProductForm() {
     productForm.reset();
     document.getElementById('product-id').value = '';
+    document.getElementById('product-discount-price').value = '';
     productImageUrlHidden.value = '';
     imagePreview.classList.add('hidden');
     imagePreview.src = '';
@@ -122,6 +143,9 @@ async function duplicateProduct(product) {
 }
 
 async function deleteProduct(product) {
+    if (!confirm(`「${product.name}」を本当に削除しますか？`)) {
+        return;
+    }
     await deleteDoc(doc(db, "products", product.id));
     if (product.imageUrl && product.imageUrl.includes('firebasestorage')) {
         const imageRef = ref(storage, product.imageUrl);

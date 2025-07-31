@@ -3,6 +3,7 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { db, functions } from '../firebase-init.js';
 
 const ordersTableBody = document.getElementById('orders-table-body');
+// ★変更点: isCareUserをデフォルトのソートキー候補に追加
 let currentSort = { key: 'orderDate', direction: 'desc' };
 let displayedOrders = [];
 
@@ -60,10 +61,14 @@ async function loadOrders() {
             if (order.status === '対応済') statusBgClass = 'bg-blue-50';
             else if (order.status === 'キャンセル') statusBgClass = 'bg-red-50';
             tr.className = `${statusBgClass} border-b`;
+            // ★変更点: isCareUserの表示ロジックを追加
+            const careUserHtml = order.isCareUser ? '<td class="px-6 py-4 font-bold text-green-600">◯</td>' : '<td class="px-6 py-4"></td>';
+
             tr.innerHTML = `
                 <td class="px-6 py-4">${order.orderNumber || 'N/A'}</td>
                 <td class="px-6 py-4">${new Date(order.orderDate.seconds * 1000).toLocaleString()}</td>
                 <td class="px-6 py-4">${order.customerName}</td>
+                ${careUserHtml} 
                 <td class="px-6 py-4">${order.totalPrice}円</td>
                 <td class="px-6 py-4">
                     <select class="status-select border rounded p-1 bg-white" data-id="${order.id}">
@@ -89,7 +94,7 @@ async function loadOrders() {
         updateSortHeaders();
     }, (error) => {
         console.error("注文の読み込みエラー:", error);
-        ordersTableBody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-red-500">注文の読み込みに失敗しました。インデックスが作成されているか確認してください。</td></tr>`;
+        ordersTableBody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-red-500">注文の読み込みに失敗しました。Firestoreのインデックスが正しく作成されているか確認してください。</td></tr>`;
     });
 }
 
@@ -123,6 +128,8 @@ async function updateOrderStatus(id, status) {
 function showOrderDetails(order) {
     const modalContent = document.getElementById('modal-content');
     const itemsHtml = order.items.map(item => `<li>${item.name} x ${item.quantity} (${item.price * item.quantity}円)</li>`).join('');
+    // ★変更点: 介護保険利用者の表示を追加
+    const careUserText = order.isCareUser ? '<span class="font-bold text-green-600">はい</span>' : 'いいえ';
     modalContent.innerHTML = `
         <div class="space-y-4">
             <p><strong>注文番号:</strong> ${order.orderNumber || 'N/A'}</p>
@@ -132,6 +139,7 @@ function showOrderDetails(order) {
             <p><strong>ご住所:</strong> ${order.customerAddress}</p>
             <p><strong>電話番号:</strong> ${order.customerPhone}</p>
             <p><strong>メールアドレス:</strong> ${order.customerEmail}</p>
+            <p><strong>介護保険利用者:</strong> ${careUserText}</p>
             <hr>
             <p><strong>配送希望日:</strong> ${order.deliveryDate}</p>
             <p><strong>食事タイミング:</strong> ${order.mealType}</p>
@@ -150,15 +158,18 @@ function showOrderDetails(order) {
 function exportOrdersToCSV() {
     const encoding = document.getElementById('csv-encoding-select').value;
     let csvContent = "";
-    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "合計金額", "ステータス", "注文内容", "食事タイミング", "提供スタイル", "支払い方法", "備考"];
+    // ★変更点: ヘッダーに「介護保険」を追加
+    const headers = ["注文番号", "注文日時", "お客様名", "住所", "電話番号", "メールアドレス", "介護保険", "合計金額", "ステータス", "注文内容", "食事タイミング", "提供スタイル", "支払い方法", "備考"];
     csvContent += headers.join(",") + "\r\n";
     displayedOrders.forEach(order => {
         const orderDate = new Date(order.orderDate.seconds * 1000).toLocaleString();
         const items = order.items.map(i => `${i.name}(${i.quantity})`).join(' | ');
         const servingStyles = (order.servingStyles || []).join(' | ');
+        // ★変更点: 介護保険利用者の情報を追加
+        const isCareUser = order.isCareUser ? 'はい' : 'いいえ';
         const row = [
             order.orderNumber || '', `"${orderDate}"`, `"${order.customerName || ''}"`, `"${order.customerAddress || ''}"`,
-            `"${order.customerPhone || ''}"`, `"${order.customerEmail || ''}"`, order.totalPrice || 0, order.status || '',
+            `"${order.customerPhone || ''}"`, `"${order.customerEmail || ''}"`, `"${isCareUser}"`, order.totalPrice || 0, order.status || '',
             `"${items}"`, `"${(order.remarks || '').replace(/"/g, '""')}"`, `"${order.mealType || ''}"`,
             `"${servingStyles}"`, `"${order.paymentMethod || ''}"`
         ];
