@@ -7,7 +7,6 @@ const ordersTableBody = document.getElementById('orders-table-body');
 let currentSort = { key: 'orderDate', direction: 'desc' };
 let displayedOrders = [];
 
-// ★★★★★ ここからが新規追加 ★★★★★
 // 新規作成・編集モーダル関連のDOM要素
 const orderEditModal = document.getElementById('order-edit-modal');
 const orderEditForm = document.getElementById('order-edit-form');
@@ -23,8 +22,6 @@ let resolveDateConfirmation;
 let allProducts = [];
 let allServingStyles = [];
 let allPaymentMethods = [];
-// ★★★★★ ここまでが新規追加 ★★★★★
-
 
 /**
  * 受注管理タブを初期化する
@@ -46,7 +43,6 @@ export function initOrders() {
     document.getElementById('csv-export-button').addEventListener('click', exportOrdersToCSV);
     document.getElementById('close-modal-button').addEventListener('click', () => document.getElementById('order-details-modal').classList.add('hidden'));
     
-    // ★★★★★ ここからが新規追加 ★★★★★
     // 新規注文作成ボタンのイベントリスナー
     document.getElementById('create-new-order-btn').addEventListener('click', () => openOrderEditModal());
 
@@ -54,6 +50,11 @@ export function initOrders() {
     document.getElementById('close-order-edit-modal-btn').addEventListener('click', () => orderEditModal.classList.add('hidden'));
     orderEditForm.addEventListener('submit', handleOrderFormSubmit);
     document.getElementById('add-item-btn').addEventListener('click', () => addItemToModal());
+    
+    // ★★★★★ ここからが変更点 ★★★★★
+    // 介護保険チェックボックスが変更されたら、価格を更新するイベントリスナーを追加
+    document.getElementById('edit-is-care-user').addEventListener('change', updateAllItemPrices);
+    // ★★★★★ ここまでが変更点 ★★★★★
 
     // 日時変更確認モーダルのイベントリスナー
     document.getElementById('date-confirm-cancel').addEventListener('click', () => {
@@ -67,12 +68,10 @@ export function initOrders() {
     
     // フォームに必要なデータを事前に読み込む
     loadPrerequisites();
-    // ★★★★★ ここまでが新規追加 ★★★★★
 
     loadOrders();
 }
 
-// ★★★★★ ここからが新規追加 ★★★★★
 /**
  * 注文フォームに必要な商品リストやオプションを事前に読み込む
  */
@@ -86,7 +85,7 @@ async function loadPrerequisites() {
     const paymentMethodsSnapshot = await getDocs(query(collection(db, "paymentMethods"), orderBy("name")));
     allPaymentMethods = paymentMethodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
-// ★★★★★ ここまでが新規追加 ★★★★★
+
 
 async function loadOrders() {
     const status = document.getElementById('filter-status').value;
@@ -138,7 +137,6 @@ async function loadOrders() {
                 </td>
                 <td class="px-6 py-4">
                     <button class="view-order-btn text-blue-600 hover:underline">詳細</button>
-                    <!-- ★変更点: 編集ボタンを追加 -->
                     <button class="edit-order-btn text-yellow-600 hover:underline ml-2">編集</button>
                     <button class="send-complete-email-btn bg-green-500 text-white px-2 py-1 rounded text-xs ml-2 disabled:bg-gray-400 disabled:cursor-not-allowed" 
                             data-id="${order.id}" 
@@ -149,7 +147,6 @@ async function loadOrders() {
             `;
             tr.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(e.target.dataset.id, e.target.value));
             tr.querySelector('.view-order-btn').addEventListener('click', () => showOrderDetails(order));
-            // ★追加: 編集ボタンのイベントリスナー
             tr.querySelector('.edit-order-btn').addEventListener('click', () => openOrderEditModal(order));
             tr.querySelector('.send-complete-email-btn').addEventListener('click', (e) => handleSendCompletionEmail(e.target));
             ordersTableBody.appendChild(tr);
@@ -161,8 +158,6 @@ async function loadOrders() {
     });
 }
 
-// (handleSort, updateSortHeaders, updateOrderStatus, showOrderDetails, exportOrdersToCSV, handleSendCompletionEmail は変更なしのため省略)
-// ... 既存の関数 ...
 function handleSort(header) {
     const sortKey = header.dataset.sortKey;
     if (currentSort.key === sortKey) {
@@ -232,8 +227,7 @@ function exportOrdersToCSV() {
         const row = [
             order.orderNumber || '', `"${orderDate}"`, `"${order.customerName || ''}"`, `"${order.customerAddress || ''}"`,
             `"${order.customerPhone || ''}"`, `"${order.customerEmail || ''}"`, `"${isCareUser}"`, order.totalPrice || 0, order.status || '',
-            `"${items}"`, `"${(order.remarks || '').replace(/"/g, '""')}"`, `"${order.mealType || ''}"`,
-            `"${servingStyles}"`, `"${order.paymentMethod || ''}"`
+            `"${items}"`, `"${order.mealType || ''}"`, `"${servingStyles}"`, `"${order.paymentMethod || ''}"`, `"${(order.remarks || '').replace(/"/g, '""')}"`
         ];
         csvContent += row.join(",") + "\r\n";
     });
@@ -274,7 +268,6 @@ async function handleSendCompletionEmail(button) {
 }
 
 
-// ★★★★★ ここからが新規追加 ★★★★★
 /**
  * 新規作成・編集モーダルを開く
  * @param {object | null} order - 編集する注文データ。新規作成の場合はnull
@@ -282,7 +275,6 @@ async function handleSendCompletionEmail(button) {
 function openOrderEditModal(order = null) {
     orderEditForm.reset();
     
-    // オプションのセレクトボックスを生成
     const mealTypeSelect = document.getElementById('edit-meal-type');
     mealTypeSelect.innerHTML = `
         <option value="昼食のみ">昼食のみ</option>
@@ -308,11 +300,9 @@ function openOrderEditModal(order = null) {
     `).join('');
 
     if (order) {
-        // --- 編集モード ---
         orderEditModalTitle.textContent = '注文内容の編集';
         editOrderId.value = order.id;
         
-        // 注文日時をISO形式に変換してセット
         const orderDate = new Date(order.orderDate.seconds * 1000);
         const yyyy = orderDate.getFullYear();
         const mm = String(orderDate.getMonth() + 1).padStart(2, '0');
@@ -323,7 +313,6 @@ function openOrderEditModal(order = null) {
         document.getElementById('edit-order-date').value = isoString;
         editOrderDateOriginal.value = isoString;
 
-        // 他のフィールドをセット
         document.getElementById('edit-customer-name').value = order.customerName;
         document.getElementById('edit-customer-address').value = order.customerAddress;
         document.getElementById('edit-customer-phone').value = order.customerPhone;
@@ -335,7 +324,6 @@ function openOrderEditModal(order = null) {
         statusSelect.value = order.status;
         document.getElementById('edit-remarks').value = order.remarks || '';
 
-        // 提供スタイル
         (order.servingStyles || []).forEach(styleName => {
             const checkbox = servingStylesContainer.querySelector(`input[value="${styleName}"]`);
             if (checkbox) checkbox.checked = true;
@@ -344,21 +332,23 @@ function openOrderEditModal(order = null) {
         renderItemsInModal(order.items);
         
     } else {
-        // --- 新規作成モード ---
         orderEditModalTitle.textContent = '新規注文作成';
         editOrderId.value = '';
         editOrderDateOriginal.value = '';
         renderItemsInModal([]);
-        addItemToModal(); // 最初の商品入力欄を追加
+        addItemToModal();
     }
     
-    updateModalTotal();
+    // ★★★★★ 変更点 ★★★★★
+    // 介護保険利用者の状態に基づいて、モーダル表示時の初期価格を正しく設定
+    updateAllItemPrices();
+    // ★★★★★ 変更点ここまで ★★★★★
+    
     orderEditModal.classList.remove('hidden');
 }
 
 /**
  * モーダル内の商品リストを描画する
- * @param {Array} items - 注文商品データの配列
  */
 function renderItemsInModal(items) {
     const container = document.getElementById('edit-order-items-container');
@@ -368,7 +358,7 @@ function renderItemsInModal(items) {
         return;
     }
 
-    items.forEach((item, index) => {
+    items.forEach((item) => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'grid grid-cols-12 gap-2 items-center';
         
@@ -384,7 +374,14 @@ function renderItemsInModal(items) {
     });
 
     // イベントリスナーを再設定
-    container.querySelectorAll('.item-product, .item-quantity, .item-price').forEach(el => {
+    container.querySelectorAll('.item-product').forEach(selectEl => {
+        selectEl.addEventListener('change', (e) => {
+            const itemRow = e.target.closest('.grid');
+            updateSingleItemPrice(itemRow);
+            updateModalTotal();
+        });
+    });
+    container.querySelectorAll('.item-quantity, .item-price').forEach(el => {
         el.addEventListener('change', updateModalTotal);
     });
     container.querySelectorAll('.remove-item-btn').forEach(btn => {
@@ -406,7 +403,7 @@ function addItemToModal() {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'grid grid-cols-12 gap-2 items-center';
     
-    const productOptions = allProducts.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name}</option>`).join('');
+    const productOptions = allProducts.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     itemDiv.innerHTML = `
         <select class="col-span-6 p-2 border rounded item-product" required><option value="">商品を選択...</option>${productOptions}</select>
@@ -416,21 +413,23 @@ function addItemToModal() {
     `;
     container.appendChild(itemDiv);
 
+    // イベントリスナーを設定
     const newSelect = itemDiv.querySelector('.item-product');
-    const newPriceInput = itemDiv.querySelector('.item-price');
-
     newSelect.addEventListener('change', (e) => {
-        const selectedOption = e.target.options[e.target.selectedIndex];
-        const price = selectedOption.dataset.price;
-        newPriceInput.value = price || 0;
+        const itemRow = e.target.closest('.grid');
+        updateSingleItemPrice(itemRow);
         updateModalTotal();
     });
-
+    
     itemDiv.querySelectorAll('.item-quantity, .item-price').forEach(el => {
         el.addEventListener('change', updateModalTotal);
     });
+
     itemDiv.querySelector('.remove-item-btn').addEventListener('click', (e) => {
         e.target.closest('.grid').remove();
+        if (container.children.length === 0) {
+            container.innerHTML = '<p id="no-items-text" class="text-gray-500">商品がありません。「商品を追加」ボタンで追加してください。</p>';
+        }
         updateModalTotal();
     });
 }
@@ -448,6 +447,40 @@ function updateModalTotal() {
     document.getElementById('edit-total-price').textContent = total;
 }
 
+// ★★★★★ ここからが新規追加 ★★★★★
+/**
+ * モーダル内の単一商品の価格を、介護保険チェックボックスの状態に応じて更新する
+ * @param {HTMLElement} itemDiv - 更新対象の商品行のdiv要素
+ */
+function updateSingleItemPrice(itemDiv) {
+    const isCareUser = document.getElementById('edit-is-care-user').checked;
+    const productSelect = itemDiv.querySelector('.item-product');
+    const priceInput = itemDiv.querySelector('.item-price');
+    const productId = productSelect.value;
+
+    if (productId) {
+        const product = allProducts.find(p => p.id === productId);
+        if (product) {
+            // 介護保険利用者で、かつ割引価格が数値として設定されていれば割引価格を、そうでなければ通常価格を使用
+            const newPrice = isCareUser && typeof product.discountPrice === 'number'
+                ? product.discountPrice
+                : product.price;
+            priceInput.value = newPrice;
+        }
+    }
+}
+
+/**
+ * モーダル内のすべての商品の価格を更新し、合計金額を再計算する
+ */
+function updateAllItemPrices() {
+    document.querySelectorAll('#edit-order-items-container .grid').forEach(itemDiv => {
+        updateSingleItemPrice(itemDiv);
+    });
+    updateModalTotal();
+}
+// ★★★★★ ここまでが新規追加 ★★★★★
+
 /**
  * 注文フォームの保存処理
  */
@@ -455,21 +488,21 @@ async function handleOrderFormSubmit(e) {
     e.preventDefault();
     const id = editOrderId.value;
 
-    // 日時変更の確認
-    if (id) { // 編集モードの場合のみ
+    if (id) {
         const newDate = document.getElementById('edit-order-date').value;
         if (newDate !== editOrderDateOriginal.value) {
             dateConfirmModal.classList.remove('hidden');
             const confirmed = await new Promise(resolve => {
                 resolveDateConfirmation = resolve;
             });
-            if (!confirmed) return; // キャンセルされたら処理を中断
+            if (!confirmed) return;
         }
     }
     
     const items = [];
     document.querySelectorAll('#edit-order-items-container .grid').forEach(itemDiv => {
         const productId = itemDiv.querySelector('.item-product').value;
+        if (!productId) return;
         const selectedOption = itemDiv.querySelector('.item-product').options[itemDiv.querySelector('.item-product').selectedIndex];
         items.push({
             productId: productId,
@@ -496,7 +529,6 @@ async function handleOrderFormSubmit(e) {
         customerEmail: document.getElementById('edit-customer-email').value,
         isCareUser: document.getElementById('edit-is-care-user').checked,
         deliveryDate: document.getElementById('edit-delivery-date').value,
-        orderDate: Timestamp.fromDate(new Date(document.getElementById('edit-order-date').value)),
         mealType: document.getElementById('edit-meal-type').value,
         paymentMethod: document.getElementById('edit-payment-method').value,
         status: document.getElementById('edit-status').value,
@@ -508,13 +540,12 @@ async function handleOrderFormSubmit(e) {
 
     try {
         if (id) {
-            // 更新
+            data.orderDate = Timestamp.fromDate(new Date(document.getElementById('edit-order-date').value));
             const orderRef = doc(db, "orders", id);
             await updateDoc(orderRef, data);
             alert('注文を更新しました。');
         } else {
-            // 新規作成
-            data.orderDate = serverTimestamp(); // 新規作成時はサーバー時刻を使用
+            data.orderDate = serverTimestamp();
             await addDoc(collection(db, "orders"), data);
             alert('新しい注文を作成しました。');
         }
@@ -524,4 +555,3 @@ async function handleOrderFormSubmit(e) {
         alert("注文の保存に失敗しました。");
     }
 }
-// ★★★★★ ここまでが新規追加 ★★★★★
