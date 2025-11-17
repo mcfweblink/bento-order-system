@@ -12,13 +12,20 @@
         body {
             font-family: 'Noto Sans JP', sans-serif;
         }
+        /* ★変更点: ローディングスピナーのアニメーション */
+        .loader {
+            border-top-color: #f97316; /* orange-500 */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-orange-50">
     <header class="bg-white shadow-md sticky top-0 z-10">
         <div class="container mx-auto px-6 py-4">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">
-                <!-- ★変更点: トップページへのリンクを追加 -->
                 <a href="./index.html" class="hover:text-orange-600 transition-colors">高齢者向け配食サービス</a>
             </h1>
         </div>
@@ -27,7 +34,7 @@
     <main class="container mx-auto p-6">
         <!-- メインビジュアルやコンセプト -->
         <section class="mb-12 text-center">
-            <img src="./img/head.png?text=旬の食材を使った、手作りの温かいお弁当" alt="お弁当のイメージ" class="w-full h-auto rounded-lg shadow-lg mb-8">
+            <img src="./img/head.png" alt="お弁当のイメージ" class="w-full h-auto rounded-lg shadow-lg mb-8">
             <h2 class="text-3xl font-bold text-orange-600 mb-4">まごころを込めて、毎日の食卓へ</h2>
             <p id="delivery-area-text" class="text-gray-700 mb-2 text-lg">（ここに配達エリアの案内が表示されます）</p>
             <p class="text-gray-600 max-w-3xl mx-auto">
@@ -37,10 +44,17 @@
 
         <!-- メニュー一覧 -->
         <section id="menu-section" class="mb-12">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">今週のメニュー</h2>
-            <div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- ★変更点: タイトルを変更 -->
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">お弁当一覧</h2>
+            
+            <!-- ★変更点: ローディングスピナーを設置 -->
+            <div id="loading-indicator" class="flex justify-center items-center py-16">
+                <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-24 w-24"></div>
+            </div>
+
+            <!-- ★変更点: 商品リストをデフォルトで非表示にする -->
+            <div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 hidden">
                 <!-- 商品情報はJavaScriptでここに動的に生成されます -->
-                <p class="col-span-full text-center text-gray-500">商品を読み込んでいます...</p>
             </div>
         </section>
 
@@ -58,14 +72,12 @@
                     </div>
                 </div>
 
-                <!-- ★変更点: 介護保険利用者チェックボックスを追加 -->
                 <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md">
                     <label class="flex items-center cursor-pointer">
                         <input type="checkbox" id="is-care-user-checkbox" class="form-checkbox h-5 w-5 text-orange-600">
                         <span class="ml-3 font-semibold text-lg">私は介護保険利用者です</span>
                     </label>
                 </div>
-
 
                 <div>
                     <h3 class="text-xl font-semibold text-gray-800 mb-3 border-l-4 border-orange-500 pl-3">ご注文内容</h3>
@@ -138,7 +150,7 @@
             <button onclick="location.reload()" class="bg-blue-500 text-white px-6 py-2 rounded-lg">ページを更新する</button>
         </div>
     </div>
-
+    
     <script type="module" src="./js/order.js"></script>
     
 </body>
